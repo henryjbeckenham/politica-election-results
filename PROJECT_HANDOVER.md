@@ -10,7 +10,7 @@ The persistent large-artifact structure was created in Google Drive at:
 
 https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5
 
-The folder structure is present and verified, but contains no admitted Stage 14.6 artifacts yet.
+The folder structure is present and verified, but contains no admitted Stage 14.6 artifacts yet. The Stage 14.1 historical inventory archive has been transferred and read back from its archive folder. The supplied Stage 14.2, Stage 14.3 and Stage 14.4 packages are larger than the connected Drive transfer limit and remain to be placed in their prepared folders through Google Drive for Desktop or the Drive web interface.
 
 ## Proven migration evidence
 

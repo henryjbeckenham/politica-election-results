@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T12:27:00+10:00",
+  "updated_at": "2026-07-25T12:30:00+10:00",
   "repository": {
     "full_name": "henryjbeckenham/politica-election-results",
     "default_branch": "main",
@@ -10,7 +10,7 @@
     "provider": "google_drive",
     "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
     "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
-    "status": "configured_empty"
+    "status": "configured_partial"
   },
   "baseline_admission": {
     "status": "pending_verification",

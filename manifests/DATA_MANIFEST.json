@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T12:27:00+10:00",
+  "updated_at": "2026-07-25T12:30:00+10:00",
   "persistent_store": {
     "provider": "google_drive",
     "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
     "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
-    "status": "configured_empty",
+    "status": "configured_partial",
     "folders": {
       "current": {
         "folder_id": "1TC1CKAs4Lha8Fptqt0ctkAw0KpjTlTZb",
@@ -54,28 +54,36 @@
       "size_bytes": 38003,
       "sha256": "02d5fbdcf481ec0fe68cb6d50046da158cda1d8d8501a4a6a7f9211882214837",
       "stored_in_git": false,
-      "status": "integrity_verified"
+      "status": "integrity_verified_and_persisted",
+      "persistent_location": {
+        "provider": "google_drive",
+        "file_id": "1Od_-8QkAcHon1sDqZ8R-Ugm1lxEegEXr",
+        "url": "https://drive.google.com/file/d/1Od_-8QkAcHon1sDqZ8R-Ugm1lxEegEXr/view?usp=drivesdk"
+      }
     },
     {
       "filename": "Politica_Stage14_2_v1.4.0(1).zip",
       "size_bytes": 367654703,
       "sha256": "7b37e3b89aa2090764edf78d5a23daf684972e31208c211877ca4b01cd7c71c4",
       "stored_in_git": false,
-      "status": "integrity_verified"
+      "status": "integrity_verified_pending_external_transfer",
+      "target_folder_id": "1b_zWANJtxKEte6PaD-mW2zYTDQ6B2mSk"
     },
     {
       "filename": "Politica_Stage14_3_v1.5.0(1).zip",
       "size_bytes": 377483863,
       "sha256": "1a1bb59b601a559d20d7d169de9c309daed9a1981100dc4ad7eb29f32e32366b",
       "stored_in_git": false,
-      "status": "integrity_verified"
+      "status": "integrity_verified_pending_external_transfer",
+      "target_folder_id": "1an8t9jSAWmFwiQlnKZqkPA-A5XUdSHRO"
     },
     {
       "filename": "Politica_Stage14_4_v1.6.0(1).zip",
       "size_bytes": 498390573,
       "sha256": "b79eb699fbed958857fe3f812c494a32f0e9ff1ba2623eecb0150ba448840e03",
       "stored_in_git": false,
-      "status": "integrity_verified"
+      "status": "integrity_verified_pending_external_transfer",
+      "target_folder_id": "1AjidgCFUz8_s4Q92cAwNpssgK8Cu6SZ3"
     }
   ]
 }
