@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-07-25T00:00:00+10:00",
+  "repository": {
+    "full_name": "henryjbeckenham/politica-election-results",
+    "default_branch": "main",
+    "visibility_observed": "public"
+  },
+  "baseline_admission": {
+    "status": "pending_verification",
+    "repository_source_version": null,
+    "accepted_commit": null,
+    "accepted_release_id": null,
+    "accepted_database_sha256": null
+  },
+  "governed_target": {
+    "stage": "14.6",
+    "application_version": "1.8.0",
+    "expected_election_years": [
+      2025,
+      2022,
+      2019,
+      2016,
+      2013,
+      2010
+    ],
+    "evidence_status": "not_yet_reproduced_in_repository"
+  },
+  "latest_reproduced_package_evidence": {
+    "stage": "14.4",
+    "application_version": "1.6.0",
+    "election_years": [
+      2025,
+      2022,
+      2019,
+      2016
+    ],
+    "outer_package_sha256": "b79eb699fbed958857fe3f812c494a32f0e9ff1ba2623eecb0150ba448840e03",
+    "cumulative_update_sha256": "94258961e16e090fbef35001c832039bceed8c153d24ccdaf294ef6a78ec430d",
+    "packaged_test_status": "PASS",
+    "packaged_integration_status": "PASS"
+  },
+  "blocked_operations": [
+    "claiming the repository is the accepted v1.8.0 source",
+    "tagging or releasing v1.8.0",
+    "commencing post-Stage 14.6 database development"
+  ],
+  "required_inputs": [
+    "Politica_Stage14_6_v1.8.0_Update.zip",
+    "Stage 14.6 active.json",
+    "Stage 14.6 build, test, integration and validation reports",
+    "persistent location and checksums for the current database and Parquet artifacts"
+  ]
+}
+
