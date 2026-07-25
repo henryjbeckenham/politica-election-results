@@ -1,10 +1,44 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T00:00:00+10:00",
+  "updated_at": "2026-07-25T12:27:00+10:00",
   "persistent_store": {
-    "provider": null,
-    "root_url": null,
-    "status": "not_configured"
+    "provider": "google_drive",
+    "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
+    "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
+    "status": "configured_empty",
+    "folders": {
+      "current": {
+        "folder_id": "1TC1CKAs4Lha8Fptqt0ctkAw0KpjTlTZb",
+        "version_folder_id": "1o8meGjex1msT3OH4qQ2YQG3rb8bDM3Mu"
+      },
+      "official_sources": {
+        "folder_id": "1t_-KmO41mSfX1CEu06919fIuQCkhss9L",
+        "year_folder_ids": {
+          "2025": "1h6weFAf37zFuFFqNGfGtzaNh7oxRcVts",
+          "2022": "1YztdkPRRYkLFVEsREElOfUFFMWiZQjIO",
+          "2019": "1DkV9JqtOS1Mr93oIoL-_sY_FYrC2GgAs",
+          "2016": "1HcIP1yBuWom4DMUbO-_QOh82AhbAWCeN",
+          "2013": "1n0-WpufQrPal4oPwVba4JQ2QOr_xOVoN",
+          "2010": "1FMIEdTiilWYEFe4FL4eG0bC8ug8VhDcY"
+        }
+      },
+      "immutable_releases": {
+        "folder_id": "1Rtm0kriPxKhxxa426Ba3rqBPvXJ8YuJN",
+        "version_folder_id": "1bdr0rN_0QpccRNSbeUvv-s56Qffysr2z"
+      },
+      "historical_development_archive": {
+        "folder_id": "1sm1LZ-X5igJ10VZzAFoQ4Wls1m3LoPEs",
+        "stage_folder_ids": {
+          "Stage12": "1IEkf_kzZHubXFidPbIKzw2etnCDdy4Ng",
+          "Stage14_1": "1ODy1NbW_M9fhRIFqdH5Uev_C7lMZ9_PH",
+          "Stage14_2": "1b_zWANJtxKEte6PaD-mW2zYTDQ6B2mSk",
+          "Stage14_3": "1an8t9jSAWmFwiQlnKZqkPA-A5XUdSHRO",
+          "Stage14_4": "1AjidgCFUz8_s4Q92cAwNpssgK8Cu6SZ3",
+          "Stage14_5": "11Vd6SRhC8_bHIcdf5J1gPMogg7blnChQ",
+          "Stage14_6": "1vNbxBlS-QLdskMA8HkVI_cJljMa3NC-P"
+        }
+      }
+    }
   },
   "current_release": {
     "status": "not_admitted",
@@ -45,4 +79,3 @@
     }
   ]
 }
-

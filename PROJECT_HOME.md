@@ -3,7 +3,7 @@
 ## Persistent locations
 
 - GitHub repository: https://github.com/henryjbeckenham/politica-election-results
-- Large-artifact store: not yet recorded
+- Large-artifact store: https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5
 - ChatGPT Project: Election Results (Politica)
 
 ## Current governed position
@@ -30,4 +30,3 @@ The intended continuation point is Stage 14.6, application 1.8.0, with federal e
 - Never commit credentials or large runtime data.
 - Never use a conversational claim as release evidence.
 - Update the handover, manifests and current-state record with every accepted stage.
-

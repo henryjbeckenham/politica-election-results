@@ -1,10 +1,16 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T00:00:00+10:00",
+  "updated_at": "2026-07-25T12:27:00+10:00",
   "repository": {
     "full_name": "henryjbeckenham/politica-election-results",
     "default_branch": "main",
     "visibility_observed": "public"
+  },
+  "artifact_store": {
+    "provider": "google_drive",
+    "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
+    "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
+    "status": "configured_empty"
   },
   "baseline_admission": {
     "status": "pending_verification",
@@ -49,7 +55,6 @@
     "Politica_Stage14_6_v1.8.0_Update.zip",
     "Stage 14.6 active.json",
     "Stage 14.6 build, test, integration and validation reports",
-    "persistent location and checksums for the current database and Parquet artifacts"
+    "the current database and Parquet artifacts, with verified checksums"
   ]
 }
-

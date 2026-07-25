@@ -6,6 +6,12 @@ The GitHub continuity framework was created on 25 July 2026.
 
 This repository is intentionally not marked as the verified Stage 14.6 source yet. The available migration packages prove the cumulative application through Stage 14.4, application 1.6.0. They do not contain the Stage 14.5 or Stage 14.6 cumulative update payloads needed to reproduce the governed 1.8.0 continuation point.
 
+The persistent large-artifact structure was created in Google Drive at:
+
+https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5
+
+The folder structure is present and verified, but contains no admitted Stage 14.6 artifacts yet.
+
 ## Proven migration evidence
 
 The following outer packages passed ZIP integrity checks and SHA-256 calculation:
@@ -40,11 +46,9 @@ The next baseline-admission operation requires:
 2. The current `active.json`.
 3. The Stage 14.6 build, test, integration and validation reports.
 4. The exact current database and external Parquet artifacts, stored outside GitHub.
-5. A persistent storage location for those large artifacts.
 
 If the Stage 14.6 update is not cumulative, the Stage 14.5 update must also be supplied. This must be determined by inspecting the archive, not assumed.
 
 ## Next permitted operation
 
 Run the baseline-admission procedure in `docs/BASELINE_MIGRATION.md`. Do not commence a 2007 addition or any other post-Stage 14.6 development until the admission status in `CURRENT_STATE.json` becomes `accepted`.
-
