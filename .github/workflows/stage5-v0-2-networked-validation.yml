@@ -1,0 +1,142 @@
+name: Stage 5 v0.2 isolated validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-stage5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download governed Stage 5 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5/work
+          curl --fail --location --retry 3 \
+            'https://drive.usercontent.google.com/download?id=1kqkF0TY4Me5yd3cZZE1Rl43FG3QIMcYu&export=download&confirm=t' \
+            --output validation/stage5/work/package.zip
+          echo 'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1  validation/stage5/work/package.zip' | sha256sum -c -
+          unzip -q validation/stage5/work/package.zip -d validation/stage5/work
+          ROOT="$(find validation/stage5/work -mindepth 1 -maxdepth 1 -type d | head -1)"
+          echo "ROOT=$ROOT" >> "$GITHUB_ENV"
+
+      - name: Configure bounded live validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('${{ env.ROOT }}')/'config.example.toml'
+          text=p.read_text()
+          text=text.replace('page_size = 1', 'page_size = 20')
+          text=text.replace('overlap_hours = 72', 'overlap_hours = 24')
+          p.write_text(text)
+          PY
+
+      - name: Run deterministic tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v 2>&1 | tee evidence/ci_unit_tests.log
+
+      - name: Capture exact current contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          mkdir -p evidence/ci_contract
+          PYTHONPATH=src python -m politica_stage5_sync.cli capture-contract \
+            config.example.toml \
+            --baseline fixtures/stage4_baseline \
+            --baseline-hash 1b56deb31a61a6508e97409f960a6d74a48d32cff4238b4e4a4ef8dfb3db65c1 \
+            --state evidence/ci_contract_state.json \
+            --evidence evidence/ci_contract \
+            | tee evidence/ci_contract_result.json
+          test "$(jq -r .block_affected_normalisation evidence/ci_contract_result.json)" = false
+          jq -r .openapi_exact_sha256 evidence/ci_contract_result.json > evidence/ci_openapi_sha256.txt
+          jq -r .service_exact_sha256 evidence/ci_contract_result.json > evidence/ci_service_sha256.txt
+
+      - name: Run bounded live Titles and Versions discovery twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          OPENAPI_HASH="$(cat evidence/ci_openapi_sha256.txt)"
+          NOW="$(date -u +%Y-%m-%dT%H:00:00Z)"
+          PREVIOUS="$(date -u -d "$NOW -24 hours" +%Y-%m-%dT%H:00:00Z)"
+          printf '%s\n' "$NOW" > evidence/ci_window_end.txt
+          printf '%s\n' "$PREVIOUS" > evidence/ci_window_previous.txt
+          PYTHONPATH=src python -m politica_stage5_sync.cli run-live \
+            config.example.toml \
+            --state evidence/ci_live_state.json \
+            --evidence evidence/ci_live_first \
+            --contract-hash "$OPENAPI_HASH" \
+            --previous-end "$PREVIOUS" \
+            --now "$NOW" \
+            --run-id ci-live-first \
+            | tee evidence/ci_live_first_result.json
+          test "$(jq -r .status evidence/ci_live_first_result.json)" = succeeded
+          test "$(jq '.watermarks | length' evidence/ci_live_first_result.json)" -eq 2
+          PYTHONPATH=src python -m politica_stage5_sync.cli run-live \
+            config.example.toml \
+            --state evidence/ci_live_state.json \
+            --evidence evidence/ci_live_repeat \
+            --contract-hash "$OPENAPI_HASH" \
+            --previous-end "$PREVIOUS" \
+            --now "$NOW" \
+            --run-id ci-live-repeat \
+            | tee evidence/ci_live_repeat_result.json
+          test "$(jq -r .status evidence/ci_live_repeat_result.json)" = succeeded
+          test "$(jq -r .metrics.created evidence/ci_live_repeat_result.json)" -eq 0
+
+      - name: Execute exact disposable PostgreSQL 18.4 harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          bash scripts/run_disposable_postgres.sh evidence/ci_postgres | tee evidence/ci_postgres_harness.log
+          grep -qx '180004' evidence/ci_postgres/server_version_num.txt
+          grep -q 'STAGE5_POSTGRES_DISPOSABLE_PASS' evidence/ci_postgres_harness.log
+
+      - name: Package evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, platform, subprocess
+          evidence=Path('evidence')
+          summary={
+            'package_sha256':'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1',
+            'python':platform.python_version(),
+            'runner':platform.platform(),
+            'git_commit':subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+          }
+          for name in ['ci_contract_result.json','ci_live_first_result.json','ci_live_repeat_result.json']:
+            p=evidence/name
+            if p.exists():
+              summary[name]=json.loads(p.read_text())
+          (evidence/'ci_summary.json').write_text(json.dumps(summary,indent=2,sort_keys=True))
+          PY
+          zip -qr ../stage5-v0-2-networked-validation-evidence.zip evidence
+          sha256sum ../stage5-v0-2-networked-validation-evidence.zip > ../stage5-v0-2-networked-validation-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v0-2-networked-validation-evidence
+          path: |
+            ${{ env.ROOT }}/../stage5-v0-2-networked-validation-evidence.zip
+            ${{ env.ROOT }}/../stage5-v0-2-networked-validation-evidence.sha256
+          if-no-files-found: error
