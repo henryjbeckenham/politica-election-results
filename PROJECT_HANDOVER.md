@@ -2,7 +2,7 @@
 
 ## Transition status
 
-The cumulative Stage 14.6 application source, version 1.8.0, has been admitted for publication in this repository. The source archive, packaged build evidence and packaged clean-integration evidence were reproduced from the supplied Stage 14.6 package.
+The cumulative Stage 14.6 application source, version 1.8.0, was published at commit `c072adfc5c98be850a22b766e8ab4cf6dddc5406`. The source archive, packaged build evidence and packaged clean-integration evidence were reproduced from the supplied Stage 14.6 package.
 
 The persistent large-artifact structure was created in Google Drive at:
 

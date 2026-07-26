@@ -44,6 +44,7 @@
     "status": "release_verification_pending",
     "stage": "14.6",
     "application_version": "1.8.0",
+    "repository_source_commit": "c072adfc5c98be850a22b766e8ab4cf6dddc5406",
     "release_id": "release_1_8_0_2010_33214168bb0d50da",
     "active_pointer": {
       "file_id": "1e6AT65c5E9p8Nms5lA-DaaJAuIUGLyA4",
