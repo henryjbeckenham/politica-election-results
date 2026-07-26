@@ -15,30 +15,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download governed Stage 5 package
+      - name: Reconstruct governed Stage 5 package
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p validation/stage5/work
-          python -m pip install --quiet gdown
-          gdown --id 1kqkF0TY4Me5yd3cZZE1Rl43FG3QIMcYu --output validation/stage5/work/package.zip
+          mapfile -t CHUNKS < <(find validation/stage5 -maxdepth 1 -type f -name 'package.b64.[0-9][0-9]' | sort)
+          test "${#CHUNKS[@]}" -eq 12
+          cat "${CHUNKS[@]}" | tr -d '\r\n' | base64 --decode > validation/stage5/work/package.zip
           echo 'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1  validation/stage5/work/package.zip' | sha256sum -c -
           unzip -q validation/stage5/work/package.zip -d validation/stage5/work
-          ROOT="$(find validation/stage5/work -mindepth 1 -maxdepth 1 -type d | head -1)"
+          ROOT="$(find validation/stage5/work -mindepth 1 -maxdepth 1 -type d | sort | head -1)"
           test -n "$ROOT"
+          test -f "$ROOT/config.example.toml"
           echo "ROOT=$ROOT" >> "$GITHUB_ENV"
 
       - name: Configure bounded live validation
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python - "$ROOT/config.example.toml" <<'PY'
           from pathlib import Path
-          p=Path('${{ env.ROOT }}')/'config.example.toml'
-          text=p.read_text()
-          text=text.replace('page_size = 1', 'page_size = 20')
-          text=text.replace('overlap_hours = 72', 'overlap_hours = 24')
-          p.write_text(text)
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          text = text.replace('page_size = 1', 'page_size = 20')
+          text = text.replace('overlap_hours = 72', 'overlap_hours = 24')
+          path.write_text(text)
           PY
 
       - name: Run deterministic tests
@@ -114,26 +117,30 @@ jobs:
           set -euo pipefail
           mkdir -p validation/stage5/final
           if [ -n "${ROOT:-}" ] && [ -d "$ROOT/evidence" ]; then
-            cd "$ROOT"
-            python - <<'PY'
+            python - "$ROOT" <<'PY'
           from pathlib import Path
-          import json, platform, subprocess
-          evidence=Path('evidence')
-          summary={
-            'package_sha256':'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1',
-            'python':platform.python_version(),
-            'runner':platform.platform(),
-            'git_commit':subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+          import json
+          import platform
+          import subprocess
+          import sys
+
+          root = Path(sys.argv[1])
+          evidence = root / 'evidence'
+          summary = {
+              'package_sha256': 'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1',
+              'python': platform.python_version(),
+              'runner': platform.platform(),
+              'git_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
           }
-          for name in ['ci_contract_result.json','ci_live_first_result.json','ci_live_repeat_result.json']:
-            p=evidence/name
-            if p.exists():
-              summary[name]=json.loads(p.read_text())
-          (evidence/'ci_summary.json').write_text(json.dumps(summary,indent=2,sort_keys=True))
+          for name in ('ci_contract_result.json', 'ci_live_first_result.json', 'ci_live_repeat_result.json'):
+              path = evidence / name
+              if path.exists():
+                  summary[name] = json.loads(path.read_text())
+          (evidence / 'ci_summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True))
           PY
-            zip -qr "$GITHUB_WORKSPACE/validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip" evidence
+            (cd "$ROOT" && zip -qr "$GITHUB_WORKSPACE/validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip" evidence)
           else
-            printf '%s\n' 'Package transfer or setup failed before evidence directory creation.' > validation/stage5/final/early_failure.txt
+            printf '%s\n' 'Validation failed before evidence directory creation.' > validation/stage5/final/early_failure.txt
             zip -q validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip validation/stage5/final/early_failure.txt
           fi
           sha256sum validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip > validation/stage5/final/stage5-v0-2-networked-validation-evidence.sha256
