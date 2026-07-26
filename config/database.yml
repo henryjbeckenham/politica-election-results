@@ -1,0 +1,35 @@
+database:
+  name: Politica Election Results Database
+  schema_version: 0.2.0
+  application_version: 0.8.0
+  architecture_status: stage_8_remaining_senate_ingestion
+  default_path: data/database/politica_election_results.duckdb
+  timezone: Australia/Sydney
+  country_priority: Australia
+  grand_database_id: 1dEqeqQU3fbbow8JBoQypEFDJL7K7bek1mG_7PmVL0aI
+  visualisation_database_id: 1i0Ok8NRksAF5y-jpZyOfjOuLPrVBSZSIIji7EDGT20g
+  source_register_id: 1LRGB3F9JzPo4LqmBXQAZ_c6psWl7E3UEIeaN-x4VvBo
+
+ownership:
+  canonical_people: grand_database
+  canonical_parties: grand_database
+  canonical_constituencies: grand_database
+  elections: election_results_database
+  contests: election_results_database
+  candidacies: election_results_database
+  reporting_units: election_results_database
+  results: election_results_database
+  source_revisions: election_results_database
+  visualisation_outputs: visualisation_database
+
+partitioning:
+  required_keys:
+    - jurisdiction_code
+    - election_year
+    - election_id
+    - chamber_code
+    - dataset_family
+    - source_revision_id
+  ballot_additional_keys:
+    - contest_id
+    - ballot_channel

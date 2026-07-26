@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#0f2942">
+  <title>Politica · Election Results Operator</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>
+          <strong>Politica</strong>
+          <small>Election Results</small>
+        </span>
+      </div>
+
+      <div class="workspace-card">
+        <span class="status-dot" id="sidebar-status-dot" aria-hidden="true"></span>
+        <span>
+          <small>Local workspace</small>
+          <strong id="sidebar-status-text">Connecting…</strong>
+        </span>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" type="button" data-route="dashboard" aria-current="page">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+          Overview
+        </button>
+        <button class="nav-item" type="button" data-route="explorer">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 10h16M10 5v14M15 14h3M15 17h3"/></svg>
+          Explore &amp; export
+        </button>
+        <button class="nav-item" type="button" data-route="feeds">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5zM10 7.5h4M7.5 10v4M16.5 10v4M10 16.5h4"/></svg>
+          Visualisation feeds
+        </button>
+        <button class="nav-item" type="button" data-route="website">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 4.5 6.2 4.5 9S15 17.8 12 21M12 3C9 6.2 7.5 9.2 7.5 12S9 17.8 12 21"/></svg>
+          Website publication
+        </button>
+        <a class="nav-item" href="/results/" target="_blank" rel="noopener">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3M3 19h18"/></svg>
+          Public results
+        </a>
+        <button class="nav-item" type="button" data-route="ingest">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5"/></svg>
+          Ingest data
+        </button>
+        <button class="nav-item" type="button" data-route="mappings">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 7h11M5 7h.01M8 12h11M5 12h.01M8 17h11M5 17h.01"/></svg>
+          Mapping review
+          <span class="nav-count hidden" id="mapping-nav-count">0</span>
+        </button>
+        <button class="nav-item" type="button" data-route="validation">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+          Validate &amp; publish
+        </button>
+        <button class="nav-item" type="button" data-route="sync">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7h-7m0 0 3-3m-3 3 3 3M4 17h7m0 0-3-3m3 3-3 3"/></svg>
+          Google Sheets sync
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span>Application / database</span>
+        <strong id="app-version">Loading…</strong>
+        <small id="db-version">Schema loading…</small>
+        <small id="db-path">Local DuckDB</small>
+      </div>
+    </aside>
+
+    <div class="mobile-scrim" id="mobile-scrim"></div>
+
+    <main class="main" id="main-content">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" id="menu-button" aria-label="Open navigation" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="breadcrumbs" aria-live="polite">
+          <span>Election Results</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          <strong id="page-label">Overview</strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="environment-pill"><span></span>Local only</span>
+          <button class="icon-button" type="button" id="refresh-button" aria-label="Refresh current view" title="Refresh">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.2 6.2L4 9m16 6-2.2 2.8A7 7 0 0 1 5.5 15"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="offline-banner hidden" id="offline-banner" role="status">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 4.9 2.8 18a1.4 1.4 0 0 0 1.2 2h16a1.4 1.4 0 0 0 1.2-2L13.7 4.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <span><strong>Application service is unavailable.</strong> Start the local server, then refresh. No data has been changed.</span>
+      </div>
+
+      <section class="view active" id="view-dashboard" data-view="dashboard">
+        <div class="page-heading heading-with-action">
+          <div>
+            <p class="eyebrow">Operator workspace</p>
+            <h1>Election data, under control.</h1>
+            <p>Inspect and preserve official files safely. Canonical insertion and publication unlock only for an explicitly registered transformation route.</p>
+          </div>
+          <button class="button primary" type="button" data-go="ingest">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            New ingestion
+          </button>
+        </div>
+
+        <div class="metric-grid" aria-label="Database summary">
+          <article class="metric-card">
+            <span class="metric-icon blue"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span>
+            <div><span>Official sources</span><strong id="metric-sources">—</strong><small id="metric-source-note">Registered revisions</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon teal"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+            <div><span>Result facts</span><strong id="metric-facts">—</strong><small id="metric-fact-note">Canonical observations</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon green"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
+            <div><span>Blocking checks</span><strong id="metric-checks">—</strong><small id="metric-check-note">Awaiting status</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon amber"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M4 4l16 16"/></svg></span>
+            <div><span>Open mappings</span><strong id="metric-mappings">—</strong><small id="metric-mapping-note">Requires review</small></div>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel release-panel">
+            <div class="panel-header">
+              <div><p class="section-label">Current release</p><h2 id="release-name">Loading database…</h2></div>
+              <span class="badge neutral" id="release-badge">Checking</span>
+            </div>
+            <div class="release-health">
+              <div class="health-ring" id="health-ring" style="--progress:0">
+                <span id="health-percent">—</span><small>checks passed</small>
+              </div>
+              <dl class="release-details">
+                <div><dt>Election</dt><dd id="release-election">—</dd></div>
+                <div><dt>Last validated</dt><dd id="release-validated">—</dd></div>
+                <div><dt>Publication</dt><dd id="release-publication">—</dd></div>
+                <div><dt>Database size</dt><dd id="release-size">—</dd></div>
+              </dl>
+            </div>
+            <div class="panel-footer">
+              <button class="text-button" type="button" data-go="validation">Open validation report <span>→</span></button>
+            </div>
+          </article>
+
+          <article class="panel activity-panel">
+            <div class="panel-header">
+              <div><p class="section-label">Workflow</p><h2>Operator checklist</h2></div>
+            </div>
+            <ol class="checklist">
+              <li class="complete"><span>1</span><div><strong>Database foundation</strong><small>Stage 2 release available locally</small></div></li>
+              <li><span>2</span><div><strong>Upload source files</strong><small>Detect and inspect source formats</small></div></li>
+              <li><span>3</span><div><strong>Resolve identities</strong><small>Review people, parties and constituencies</small></div></li>
+              <li><span>4</span><div><strong>Validate and publish</strong><small>Release only after blocking checks pass</small></div></li>
+            </ol>
+          </article>
+        </div>
+
+        <article class="panel jobs-panel">
+          <div class="panel-header">
+            <div><p class="section-label">Recent activity</p><h2>Ingestion jobs</h2></div>
+            <button class="button secondary compact" type="button" data-go="ingest">New job</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Job</th><th>Source</th><th>Rows</th><th>Status</th><th>Updated</th><th><span class="visually-hidden">Open</span></th></tr></thead>
+              <tbody id="jobs-table-body">
+                <tr class="empty-row"><td colspan="6"><div class="empty-inline"><span class="spinner"></span>Loading jobs…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="view" id="view-explorer" data-view="explorer">
+        <div class="page-heading heading-with-action">
+          <div>
+            <p class="eyebrow">Read-only data access</p>
+            <h1>Explore and export election results</h1>
+            <p>Filter the active immutable release, inspect canonical records and download provenance-bearing CSV files for Politica visualisations and analysis.</p>
+          </div>
+          <button class="button primary" type="button" id="explorer-export-button" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+            Export filtered CSV
+          </button>
+        </div>
+
+        <div class="callout info explorer-readonly-note">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg>
+          <span><strong>Read-only.</strong> Exploration and export never modify the active database, source files, releases or Grand Database references.</span>
+        </div>
+
+        <div class="metric-grid explorer-metrics" aria-label="Election data summary">
+          <article class="metric-card">
+            <span class="metric-icon blue"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 10h8M8 14h5"/></svg></span>
+            <div><span>Contests</span><strong id="explorer-metric-contests">—</strong><small>Active election contests</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon teal"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 8h5M18.5 5.5v5"/></svg></span>
+            <div><span>Candidacies</span><strong id="explorer-metric-candidacies">—</strong><small>Governed candidate records</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon green"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 18V9m5 9V5m5 13v-6m5 6V3"/></svg></span>
+            <div><span>Vote facts</span><strong id="explorer-metric-results">—</strong><small>Current canonical facts</small></div>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon amber"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span>
+            <div><span>Formal ballots</span><strong id="explorer-metric-ballots">—</strong><small>Anonymous stored ballots</small></div>
+          </article>
+        </div>
+
+        <article class="panel explorer-filter-panel">
+          <div class="panel-header">
+            <div><p class="section-label">Query controls</p><h2>Choose the records to inspect</h2><p>Every control maps to a fixed, parameterised database query.</p></div>
+            <span class="badge neutral" id="explorer-release-badge">Loading release…</span>
+          </div>
+          <div class="explorer-filter-grid">
+            <label class="field"><span>Dataset</span><select id="explorer-dataset"></select></label>
+            <label class="field"><span>Election</span><select id="explorer-election"></select></label>
+            <label class="field"><span>Chamber</span><select id="explorer-chamber"><option value="">All chambers</option></select></label>
+            <label class="field"><span>State or territory</span><select id="explorer-state"><option value="">All states and territories</option></select></label>
+            <label class="field explorer-wide-field"><span>Contest</span><select id="explorer-contest"><option value="">All contests</option></select></label>
+            <label class="field" data-explorer-result-filter><span>Result type</span><select id="explorer-result-type"><option value="">All result types</option></select></label>
+            <label class="field" data-explorer-result-filter><span>Vote type</span><select id="explorer-vote-type"><option value="">All vote types</option></select></label>
+            <label class="field" data-explorer-result-filter><span>Reporting level</span><select id="explorer-reporting-level"><option value="contest">Contest totals</option><option value="state">State or national totals</option><option value="division">Division reporting units</option><option value="polling_place">Polling places</option><option value="all">All reporting levels</option></select></label>
+            <label class="field explorer-search-field"><span>Search within records</span><input id="explorer-search" type="search" maxlength="200" placeholder="Candidate, party, contest or measure"></label>
+          </div>
+          <div class="explorer-filter-actions">
+            <button class="button secondary" type="button" id="explorer-reset-button">Reset filters</button>
+            <button class="button primary" type="button" id="explorer-apply-button">Apply filters</button>
+          </div>
+        </article>
+
+        <article class="panel explorer-results-panel">
+          <div class="panel-header">
+            <div><p class="section-label">Canonical records</p><h2 id="explorer-table-title">Election results</h2><p id="explorer-table-summary">Loading the active release…</p></div>
+            <label class="compact-select"><span class="visually-hidden">Rows per page</span><select id="explorer-page-size"><option value="25">25 rows</option><option value="50" selected>50 rows</option><option value="100">100 rows</option><option value="250">250 rows</option></select></label>
+          </div>
+          <div class="table-wrap explorer-table-wrap">
+            <table class="explorer-table">
+              <thead id="explorer-table-head"><tr><th>Loading</th></tr></thead>
+              <tbody id="explorer-table-body"><tr class="empty-row"><td><div class="empty-inline"><span class="spinner"></span>Loading canonical records…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="explorer-pagination">
+            <span id="explorer-page-label">Page 1</span>
+            <div class="button-group">
+              <button class="button secondary compact" type="button" id="explorer-prev-button" disabled>Previous</button>
+              <button class="button secondary compact" type="button" id="explorer-next-button" disabled>Next</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="view" id="view-feeds" data-view="feeds">
+        <div class="page-heading heading-with-action">
+          <div>
+            <p class="eyebrow">Publication API</p>
+            <h1>Visualisation feeds</h1>
+            <p>Use stable, versioned JSON and CSV feeds in Observable, Flourish or another publishing tool. Every response is bound to the active immutable release.</p>
+          </div>
+          <span class="badge neutral" id="feeds-version-badge">API v1 · loading</span>
+        </div>
+
+        <div class="callout info feeds-readonly-note">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg>
+          <span><strong>Publication-safe and read-only.</strong> These endpoints expose only registered feed contracts. They cannot run arbitrary SQL or modify DuckDB, source files, releases or Google Sheets.</span>
+        </div>
+
+        <article class="panel feed-release-panel">
+          <div class="panel-header">
+            <div><p class="section-label">Active publication identity</p><h2 id="feeds-release-id">Loading verified release…</h2><p id="feeds-release-detail">Checking the database checksum and feed catalogue.</p></div>
+            <span class="badge info" id="feeds-schema-badge">Schema —</span>
+          </div>
+          <div class="feed-controls">
+            <label class="field"><span>Election</span><select id="feeds-election"></select></label>
+            <label class="field"><span>State or territory <small>(optional)</small></span><select id="feeds-state"><option value="">All states and territories</option><option>ACT</option><option>NSW</option><option>NT</option><option>QLD</option><option>SA</option><option>TAS</option><option>VIC</option><option>WA</option></select></label>
+            <div class="feed-checksum"><span>Database SHA-256</span><code id="feeds-database-sha">—</code></div>
+          </div>
+        </article>
+
+        <div class="feed-grid" id="feed-cards" aria-live="polite">
+          <article class="panel feed-card"><div class="empty-inline"><span class="spinner"></span>Loading versioned feed contracts…</div></article>
+        </div>
+
+        <article class="panel feed-help-panel">
+          <div><p class="section-label">Using these feeds</p><h2>Connect without copying database files</h2></div>
+          <div class="feed-help-grid">
+            <div><strong>Observable</strong><p>Copy a JSON URL, then load it with <code>FileAttachment</code> or <code>fetch</code>. Rows are in the response's <code>data</code> array.</p></div>
+            <div><strong>Flourish</strong><p>Download a CSV, or use its CSV URL where your Flourish plan supports live data imports.</p></div>
+            <div><strong>Verification</strong><p>Retain the manifest beside a published visual. It records the release, filters, fields and source revisions used.</p></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="view" id="view-website" data-view="website">
+        <div class="page-heading heading-with-action">
+          <div>
+            <p class="eyebrow">Static public release</p>
+            <h1>Website publication</h1>
+            <p>Build a complete, host-ready copy of the public results website from the checksum-verified active database release.</p>
+          </div>
+          <span class="badge neutral" id="website-status-badge">Not built</span>
+        </div>
+
+        <div class="callout info">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg>
+          <span><strong>Nothing is uploaded during Stage 12.0.</strong> The package contains only the public site and fixed publication feeds. DuckDB, source files, credentials and operator controls remain local.</span>
+        </div>
+
+        <div class="website-publication-layout">
+          <article class="panel">
+            <div class="panel-header">
+              <div><p class="section-label">Current website package</p><h2 id="website-release-id">No package has been built</h2><p id="website-release-detail">Build the first static package from the active release.</p></div>
+              <span class="badge neutral" id="website-current-badge">Awaiting build</span>
+            </div>
+            <dl class="mini-details website-details">
+              <div><dt>Database checksum</dt><dd class="mono" id="website-database-sha">—</dd></div>
+              <div><dt>Election</dt><dd id="website-election-id">—</dd></div>
+              <div><dt>Files</dt><dd id="website-file-count">—</dd></div>
+              <div><dt>Publication feeds</dt><dd id="website-feed-count">—</dd></div>
+              <div><dt>ZIP size</dt><dd id="website-export-size">—</dd></div>
+              <div><dt>Package checksum</dt><dd class="mono" id="website-export-sha">—</dd></div>
+            </dl>
+            <div class="form-actions website-actions">
+              <button class="button primary" type="button" id="build-website-button">Build website package</button>
+              <a class="button secondary hidden" id="preview-website-link" href="/site-preview/" target="_blank" rel="noopener">Preview package</a>
+              <a class="button secondary hidden" id="download-website-link" href="/api/site-publication/download">Download ZIP</a>
+            </div>
+            <small class="button-help" id="website-build-help">The active database is read only throughout this operation.</small>
+          </article>
+
+          <aside class="panel website-safety-panel">
+            <p class="section-label">Package checks</p>
+            <h2>Ready only after verification</h2>
+            <ol class="website-check-list">
+              <li><span>1</span><div><strong>Pin the active release</strong><small>Verify the complete DuckDB checksum.</small></div></li>
+              <li><span>2</span><div><strong>Generate seven feeds</strong><small>Create release-bound JSON, CSV and manifests.</small></div></li>
+              <li><span>3</span><div><strong>Build the static site</strong><small>Use packaged files instead of a live database connection.</small></div></li>
+              <li><span>4</span><div><strong>Verify and freeze</strong><small>Check every file, row count and checksum before download.</small></div></li>
+            </ol>
+            <p class="prerequisite-note" id="website-verification-note">No deployable package is currently selected.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-ingest" data-view="ingest">
+        <div class="page-heading">
+          <p class="eyebrow">Guided workflow</p>
+          <h1>Ingest election data</h1>
+          <p>Files remain unchanged in the source archive. A matching format can still be staging-only; nothing reaches canonical tables without a registered transformer, review and validation.</p>
+        </div>
+
+        <ol class="stepper" id="ingest-stepper" aria-label="Ingestion progress">
+          <li class="active" data-step="1"><span>1</span><div><strong>Select files</strong><small>CSV, XLSX or ZIP</small></div></li>
+          <li data-step="2"><span>2</span><div><strong>Inspect format</strong><small>Adapter and preview</small></div></li>
+          <li data-step="3"><span>3</span><div><strong>Configure</strong><small>Election and destination</small></div></li>
+          <li data-step="4"><span>4</span><div><strong>Run import</strong><small>Transform and validate</small></div></li>
+        </ol>
+
+        <article class="panel ingest-stage active" id="ingest-select-stage" data-ingest-stage="1">
+          <div class="panel-header">
+            <div><p class="section-label">Step 1 of 4</p><h2>Choose official source files</h2><p>Select one file, or a ZIP containing a related official release.</p></div>
+          </div>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-controls="file-input">
+            <input type="file" id="file-input" accept=".csv,.xlsx,.zip" hidden>
+            <span class="upload-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V5m0 0L8 9m4-4 4 4M5 15v4h14v-4"/></svg></span>
+            <h3>Drop a file here</h3>
+            <p>or <span>browse your computer</span></p>
+            <small>Accepted formats: CSV, XLSX and ZIP · Maximum 2 GB</small>
+          </div>
+          <div class="privacy-note">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v10H5z"/></svg>
+            <span><strong>Local processing.</strong> Uploaded files stay on this computer and are copied into the immutable source archive.</span>
+          </div>
+          <details class="advanced-action" open>
+            <summary><span><strong>Register an entirely new AEC election</strong><small>Start with the official House and/or Senate Candidates CSV files.</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <div class="advanced-action-body">
+              <div><h3>New election bootstrap</h3><p>Preview the event number, polling date, contests, candidates and exact Grand Database matches before creating anything. Confirmation creates an isolated working copy; the active release and Google Sheet remain unchanged.</p><span class="advanced-safe"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>Stage 6 supports official AEC federal candidate files.</span></div>
+              <button class="button primary" type="button" id="bootstrap-aec-button">Register new AEC election</button>
+            </div>
+          </details>
+          <details class="advanced-action">
+            <summary><span><strong>Advanced: reproduce an existing governed release</strong><small>Use the 45 registered AEC 2025 source files already stored locally.</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <div class="advanced-action-body">
+              <div><h3>Reproduce the 2025 federal election</h3><p>Creates an isolated job and reprocesses every registered House and Senate source, including the large formal-preference datasets.</p><span class="advanced-warning"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 4.9 2.8 18a1.4 1.4 0 0 0 1.2 2h16a1.4 1.4 0 0 0 1.2-2L13.7 4.9a2 2 0 0 0-3.4 0Z"/></svg>This is a full rebuild from 45 local AEC sources and may take a long time.</span></div>
+              <button class="button secondary" type="button" id="reproduce-2025-button">Reproduce 2025 release</button>
+            </div>
+          </details>
+        </article>
+
+        <article class="panel ingest-stage" id="ingest-inspect-stage" data-ingest-stage="2">
+          <div class="file-summary">
+            <span class="file-icon" id="detected-file-type">CSV</span>
+            <div><strong id="detected-file-name">—</strong><small id="detected-file-meta">—</small></div>
+            <button class="text-button danger-text" type="button" id="replace-file-button">Replace file</button>
+          </div>
+          <div class="detection-grid">
+            <div class="detection-card">
+              <div class="detection-title"><span class="match-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><p class="section-label">Detected format</p><h2 id="detected-adapter">Inspecting…</h2></div></div>
+              <dl class="mini-details">
+                <div><dt>Dataset</dt><dd id="detected-dataset">—</dd></div>
+                <div><dt>Destination</dt><dd id="detected-destination">—</dd></div>
+                <div><dt>Confidence</dt><dd><span class="badge success" id="detected-confidence">—</span></dd></div>
+              </dl>
+            </div>
+            <div class="detection-card">
+              <p class="section-label">File contents</p>
+              <div class="stat-row"><div><strong id="detected-rows">—</strong><small>estimated rows</small></div><div><strong id="detected-columns">—</strong><small>columns</small></div><div><strong id="detected-sheets">—</strong><small>sheets / files</small></div></div>
+            </div>
+          </div>
+          <div class="callout warning hidden" id="detection-warning"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 4.9 2.8 18a1.4 1.4 0 0 0 1.2 2h16a1.4 1.4 0 0 0 1.2-2L13.7 4.9a2 2 0 0 0-3.4 0Z"/></svg><span id="detection-warning-text"></span></div>
+          <div class="subsection-heading"><div><h3>Source preview</h3><p>The first source rows, before transformation.</p></div><span id="preview-sheet-label"></span></div>
+          <div class="table-wrap preview-table"><table><thead id="preview-table-head"></thead><tbody id="preview-table-body"></tbody></table></div>
+          <div class="form-actions between">
+            <button class="button secondary" type="button" id="inspect-back-button">Back</button>
+            <button class="button primary" type="button" id="inspect-continue-button">Continue to configuration <span>→</span></button>
+          </div>
+        </article>
+
+        <article class="panel ingest-stage" id="ingest-configure-stage" data-ingest-stage="3">
+          <div class="panel-header"><div><p class="section-label">Step 3 of 4</p><h2>Confirm import configuration</h2><p>These values define the governed import run and cannot be silently changed later.</p></div></div>
+          <form id="job-config-form">
+            <div class="form-grid">
+              <label class="field"><span>Electoral authority</span><select id="config-authority" required><option value="authority_aec">Australian Electoral Commission (AEC)</option></select></label>
+              <label class="field"><span>Election</span><select id="config-election" required><option value="election_fed_2025_05_03_general">2025 Australian federal election</option></select></label>
+              <label class="field"><span>Publication phase</span><select id="config-phase" required><option value="final">Final official results</option></select></label>
+              <label class="field"><span>Source landing page <small>(optional)</small></span><input id="config-source-url" type="url" placeholder="https://…"></label>
+            </div>
+            <label class="field full"><span>Operator note <small>(optional)</small></span><textarea id="config-note" rows="3" placeholder="What is this file, and why is it being imported?"></textarea></label>
+            <label class="check-row"><input type="checkbox" id="config-confirm" required><span><strong>I have selected the correct official source and election.</strong><small>The original file will be checksum-registered and retained unchanged.</small></span></label>
+            <div class="form-actions between"><button class="button secondary" type="button" id="configure-back-button">Back</button><button class="button primary" type="submit" id="create-job-button">Create ingestion job</button></div>
+          </form>
+        </article>
+
+        <article class="panel ingest-stage" id="ingest-run-stage" data-ingest-stage="4">
+          <div class="run-heading"><div><p class="section-label">Ingestion job</p><h2 id="run-job-name">Preparing import…</h2><p id="run-job-subtitle">The job can resume safely if this page is closed.</p></div><span class="badge info" id="run-status-badge">Queued</span></div>
+          <section class="format-review hidden" id="format-review-panel">
+            <div><p class="section-label">Operator decision required</p><h3>Confirm source formats</h3><p>One or more datasets did not have a unique filename-and-header match. Choose only a compatible registered format.</p></div>
+            <div class="format-review-list" id="format-review-list"></div>
+            <button class="button primary" type="button" id="save-format-button">Save format choices</button>
+          </section>
+          <div class="progress-track large"><span id="run-progress-bar" style="width:0%"></span></div>
+          <div class="run-progress-meta"><strong id="run-progress-label">Waiting to start</strong><span id="run-progress-percent">0%</span></div>
+          <ol class="phase-list" id="run-phase-list">
+            <li data-phase="register"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong>Register source revision</strong><small>Checksum and immutable archive copy</small></div><em>Waiting</em></li>
+            <li data-phase="stage"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong>Stage source rows</strong><small>Preserve the source-native structure</small></div><em>Waiting</em></li>
+            <li data-phase="transform"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong>Transform and match</strong><small>Apply adapter and canonical identities</small></div><em>Waiting</em></li>
+            <li data-phase="validate"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong>Run validation</strong><small>Reconcile source and canonical totals</small></div><em>Waiting</em></li>
+          </ol>
+          <details class="log-drawer"><summary>Technical log <span>Show</span></summary><pre id="run-log">Job log will appear here.</pre></details>
+          <div class="form-actions between"><button class="button secondary danger-outline" type="button" id="cancel-job-button">Cancel job</button><div class="button-group"><button class="button secondary hidden" type="button" id="resume-job-button">Start job</button><button class="button secondary hidden" type="button" id="review-mappings-button">Review mappings</button><button class="button primary hidden" type="button" id="review-validation-button">Review validation <span>→</span></button></div></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-mappings" data-view="mappings">
+        <div class="page-heading heading-with-action">
+          <div><p class="eyebrow">Canonical identities</p><h1>Mapping review</h1><p>Source labels must resolve to authoritative People, Parties and Constituencies. Unresolved items never create silent records.</p></div>
+          <label class="compact-select"><span>Ingestion job</span><select id="mapping-job-select"><option value="">Select a job…</option></select></label>
+        </div>
+        <div class="mini-metric-grid">
+          <article><span class="metric-icon amber"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/></svg></span><div><strong id="mapping-open-count">—</strong><small>Needs review</small></div></article>
+          <article><span class="metric-icon green"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong id="mapping-resolved-count">—</strong><small>Resolved</small></div></article>
+          <article><span class="metric-icon blue"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h16"/></svg></span><div><strong id="mapping-total-count">—</strong><small>Total labels</small></div></article>
+        </div>
+        <div class="mapping-complete-bar hidden" id="mapping-complete-bar"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><strong>Mapping review complete</strong><small>This job can now continue to staging and validation.</small></div><button class="button primary compact" type="button" id="continue-mapped-job-button">Continue ingestion <span>→</span></button></div>
+        <article class="panel">
+          <div class="mapping-toolbar">
+            <div class="segmented" role="group" aria-label="Mapping status filter"><button class="active" type="button" data-mapping-filter="open">Needs review</button><button type="button" data-mapping-filter="all">All</button><button type="button" data-mapping-filter="resolved">Resolved</button></div>
+            <div class="toolbar-right"><label class="search-field"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="mapping-search" type="search" placeholder="Search source labels"></label><select id="mapping-type-filter" aria-label="Filter by entity type"><option value="all">All entity types</option><option value="person">People</option><option value="party">Parties</option><option value="constituency">Constituencies</option></select></div>
+          </div>
+          <div class="table-wrap mapping-table-wrap">
+            <table class="mapping-table"><thead><tr><th>Source label</th><th>Entity</th><th>Context</th><th>Suggested canonical record</th><th>Confidence</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="mapping-table-body"><tr class="empty-row"><td colspan="7"><div class="empty-state compact"><h3>Select an ingestion job</h3><p>Mapping issues for that job will appear here.</p></div></td></tr></tbody></table>
+          </div>
+          <div class="table-pagination"><span id="mapping-result-count">0 items</span><div><button class="icon-button small" type="button" id="mapping-prev" aria-label="Previous page" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span id="mapping-page-label">Page 1</span><button class="icon-button small" type="button" id="mapping-next" aria-label="Next page" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-validation" data-view="validation">
+        <div class="page-heading heading-with-action">
+          <div><p class="eyebrow">Release gate</p><h1>Validate &amp; publish</h1><p>Blocking checks must pass before a publication snapshot can be created.</p></div>
+          <label class="compact-select"><span>Ingestion job</span><select id="validation-job-select"><option value="current">Current database release</option></select></label>
+        </div>
+        <article class="validation-hero panel" id="validation-hero">
+          <div class="validation-icon pending" id="validation-hero-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01"/></svg></div>
+          <div class="validation-copy"><p class="section-label">Validation status</p><h2 id="validation-title">Loading validation report…</h2><p id="validation-description">Checking database integrity and reconciliation evidence.</p></div>
+          <div class="validation-summary"><div><strong id="validation-pass-count">—</strong><small>Passed</small></div><div><strong id="validation-warn-count">—</strong><small>Warnings</small></div><div><strong id="validation-fail-count">—</strong><small>Failed</small></div></div>
+        </article>
+        <div class="validation-layout">
+          <article class="panel validation-list-panel">
+            <div class="panel-header"><div><p class="section-label">Evidence</p><h2>Validation checks</h2></div><button class="button secondary compact" type="button" id="rerun-validation-button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.2 6.2L4 9m16 6-2.2 2.8A7 7 0 0 1 5.5 15"/></svg>Run again</button></div>
+            <div class="validation-filters"><button class="active" type="button" data-validation-filter="all">All</button><button type="button" data-validation-filter="blocking">Blocking</button><button type="button" data-validation-filter="warning">Warnings</button></div>
+            <div class="validation-checks" id="validation-checks"><div class="loading-block"><span class="spinner"></span>Loading checks…</div></div>
+          </article>
+          <aside class="panel publish-panel">
+            <p class="section-label">Publication</p><h2>Create a governed snapshot</h2><p>A snapshot freezes the accepted facts, source revisions and validation evidence for downstream use.</p>
+            <dl class="publish-details"><div><dt>Target status</dt><dd><span class="badge success">Final</span></dd></div><div><dt>Included jobs</dt><dd id="publish-job-count">—</dd></div><div><dt>Open mappings</dt><dd id="publish-open-mappings">—</dd></div><div><dt>Blocking failures</dt><dd id="publish-blocking-failures">—</dd></div></dl>
+            <button class="button primary full-width" type="button" id="publish-button" disabled>Create publication snapshot</button>
+            <small class="button-help" id="publish-help">Publication unlocks when every blocking check passes.</small>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-sync" data-view="sync">
+        <div class="page-heading">
+          <p class="eyebrow">Reference data</p><h1>Google Sheets synchronisation</h1><p>Preview the pinned authoritative workbook, then validate and activate an immutable local snapshot of People, Parties and Constituencies.</p>
+        </div>
+        <div class="sync-direction">
+          <div class="system-card google"><span class="system-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 10h16M10 4v16"/></svg></span><div><small>Authoritative source</small><strong>Grand Database</strong><span>Google Sheets</span></div></div>
+          <div class="direction-arrow"><span>Read-only</span><svg aria-hidden="true" viewBox="0 0 80 24"><path d="M2 12h72M66 4l8 8-8 8"/></svg><small>No write-back</small></div>
+          <div class="system-card duckdb"><span class="system-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span><div><small>Local snapshot</small><strong>Election Results DB</strong><span>DuckDB</span></div></div>
+        </div>
+        <div class="sync-layout">
+          <article class="panel">
+            <div class="panel-header"><div><p class="section-label">Connection</p><h2>Grand Database source</h2></div><span class="badge neutral" id="sheets-status-badge"><span class="status-dot"></span>Checking</span></div>
+            <label class="field full"><span>Pinned Spreadsheet ID</span><div class="input-with-action"><input id="spreadsheet-id" type="text" value="1dEqeqQU3fbbow8JBoQypEFDJL7K7bek1mG_7PmVL0aI" spellcheck="false" readonly aria-readonly="true"><button class="button secondary" type="button" id="test-sheets-button">Test connection</button></div></label>
+            <fieldset class="tab-selector"><legend>Required reference tabs</legend><label><input type="checkbox" name="sync-tab" value="People" checked disabled><span><strong>People</strong><small>Canonical candidates and members</small></span><em id="sync-people-count">—</em></label><label><input type="checkbox" name="sync-tab" value="Parties" checked disabled><span><strong>Parties</strong><small>Names, abbreviations and aliases</small></span><em id="sync-parties-count">—</em></label><label><input type="checkbox" name="sync-tab" value="Constituencies" checked disabled><span><strong>Constituencies</strong><small>Historical identities and official codes</small></span><em id="sync-constituencies-count">—</em></label></fieldset>
+            <div class="form-actions"><button class="button primary" type="button" id="preview-sync-button">Preview changes</button></div>
+          </article>
+          <aside class="panel snapshot-panel">
+            <p class="section-label">Current local snapshot</p><h2 id="snapshot-date">Not yet inspected</h2>
+            <dl><div><dt>People</dt><dd id="snapshot-people">—</dd></div><div><dt>Parties</dt><dd id="snapshot-parties">—</dd></div><div><dt>Constituencies</dt><dd id="snapshot-constituencies">—</dd></div><div><dt>Workbook checksum</dt><dd class="mono" id="snapshot-checksum">—</dd></div></dl>
+            <div class="callout info"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg><span>Applying a reviewed preview validates and activates a new local release. It never changes the authoritative Grand Database.</span></div>
+          </aside>
+        </div>
+        <article class="panel hidden" id="sync-preview-panel">
+          <div class="panel-header"><div><p class="section-label">Change preview</p><h2>Review snapshot differences</h2><p>No local changes have been applied or activated.</p></div><span class="badge info" id="sync-preview-badge">Preview ready</span></div>
+          <div class="diff-summary"><div><span class="diff-dot add"></span><strong id="diff-added">0</strong><small>Added</small></div><div><span class="diff-dot change"></span><strong id="diff-updated">0</strong><small>Updated</small></div><div><span class="diff-dot remove"></span><strong id="diff-removed">0</strong><small>Missing at source</small></div><div><span class="diff-dot same"></span><strong id="diff-unchanged">0</strong><small>Unchanged</small></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Tab</th><th>Record</th><th>Change</th><th>Fields</th></tr></thead><tbody id="sync-diff-table-body"></tbody></table></div>
+          <div class="form-actions between"><button class="button secondary" type="button" id="discard-sync-preview-button">Discard preview</button><button class="button primary" type="button" id="apply-sync-button">Apply &amp; activate local snapshot</button></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="publish-modal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title">
+      <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="modal-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/></svg></span>
+      <h2 id="publish-modal-title">Create publication snapshot?</h2>
+      <p>This freezes the accepted data and validation evidence as a new governed release. The underlying source revisions remain immutable.</p>
+      <label class="field full"><span>Release note</span><textarea id="publication-note" rows="3" placeholder="Describe this release…"></textarea></label>
+      <label class="check-row compact"><input type="checkbox" id="publication-confirm"><span><strong>I have reviewed the validation evidence.</strong></span></label>
+      <div class="form-actions end"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button primary" type="button" id="confirm-publish-button" disabled>Publish snapshot</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="mapping-modal" role="presentation">
+    <section class="modal mapping-modal" role="dialog" aria-modal="true" aria-labelledby="mapping-modal-title">
+      <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <p class="section-label">Resolve mapping</p><h2 id="mapping-modal-title">Select a canonical record</h2><p id="mapping-modal-source">—</p>
+      <label class="search-field modal-search"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="canonical-search" type="search" placeholder="Search canonical records"></label>
+      <div class="canonical-results" id="canonical-results"></div>
+      <div class="form-actions between"><button class="button secondary" type="button" id="leave-unresolved-button">Mark not applicable</button><button class="button primary" type="button" id="save-mapping-button" disabled>Save resolution</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="reproduce-modal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="reproduce-modal-title">
+      <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="modal-icon warning"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 4.9 2.8 18a1.4 1.4 0 0 0 1.2 2h16a1.4 1.4 0 0 0 1.2-2L13.7 4.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+      <h2 id="reproduce-modal-title">Reprocess all 45 AEC sources?</h2>
+      <p>This starts an isolated reproduction of the governed 2025 federal election release. It reads the existing local sources and does not overwrite the active database while running.</p>
+      <div class="callout warning modal-warning"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/></svg><span>The Senate formal-preference files are large. The job may run for a considerable time, but it can resume from safe checkpoints.</span></div>
+      <div class="form-actions end"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button primary" type="button" id="confirm-reproduce-button">Start full reproduction</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="bootstrap-aec-modal" role="presentation">
+    <section class="modal bootstrap-modal" role="dialog" aria-modal="true" aria-labelledby="bootstrap-aec-modal-title">
+      <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="modal-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 3v4m8-4v4M8 11h3m2 0h3M8 15h3m2 0h3"/></svg></span>
+      <h2 id="bootstrap-aec-modal-title">Register a new AEC election</h2>
+      <p id="bootstrap-aec-intro">Supply the official candidate register and the event metadata printed by the AEC. The first action below is a read-only preview.</p>
+      <form id="bootstrap-aec-form">
+        <div class="bootstrap-form-grid">
+          <label class="field full-span"><span>Candidate files</span><input id="bootstrap-files" type="file" accept=".csv" multiple required><small>Choose HouseCandidatesDownload-EVENT.csv, SenateCandidatesDownload-EVENT.csv, or both.</small></label>
+          <label class="field full-span"><span>Election name</span><input id="bootstrap-name" type="text" placeholder="e.g. 2030 Australian federal election" maxlength="300" required></label>
+          <label class="field"><span>AEC event number</span><input id="bootstrap-event" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="e.g. 55555" required></label>
+          <label class="field"><span>Polling day</span><input id="bootstrap-date" type="date" required></label>
+          <label class="field"><span>Election type</span><select id="bootstrap-type"><option value="general">General election</option><option value="periodic">Periodic election</option><option value="by_election">By-election</option><option value="supplementary">Supplementary election</option><option value="fresh">Fresh election</option></select></label>
+          <label class="field"><span>Current source phase</span><select id="bootstrap-phase"><option value="final">Final official</option><option value="provisional">Provisional</option><option value="unpublished">Not yet published</option></select></label>
+          <label class="field"><span>Contest status</span><select id="bootstrap-contest-status"><option value="nominations_closed">Nominations closed</option><option value="scheduled">Scheduled</option><option value="counting">Counting</option><option value="declared">Declared</option></select></label>
+          <label class="field"><span>Official source page <small>(optional)</small></span><input id="bootstrap-source-url" type="url" placeholder="https://…"></label>
+        </div>
+        <details class="bootstrap-senate-options">
+          <summary>Senate vacancy settings</summary>
+          <div class="bootstrap-form-grid compact">
+            <label class="field"><span>Per state</span><input id="bootstrap-state-vacancies" type="number" min="1" max="24" value="6"></label>
+            <label class="field"><span>Per territory</span><input id="bootstrap-territory-vacancies" type="number" min="1" max="12" value="2"></label>
+            <label class="check-row compact full-span"><input id="bootstrap-whole-senate" type="checkbox"><span><strong>This is a whole-Senate election</strong><small>Leave clear for an ordinary half-Senate election.</small></span></label>
+          </div>
+        </details>
+        <label class="field full"><span>Operator note <small>(optional)</small></span><textarea id="bootstrap-note" rows="2" placeholder="Why is this election being registered now?"></textarea></label>
+        <div class="callout info bootstrap-callout"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg><span>Unmatched people, parties and constituencies are retained as explicitly unmatched. This process never creates or edits Grand Database rows.</span></div>
+        <div class="form-actions end"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button primary" type="submit" id="preview-bootstrap-button">Preview registration</button></div>
+      </form>
+      <section class="bootstrap-preview hidden" id="bootstrap-preview-panel">
+        <div class="bootstrap-preview-heading"><span class="match-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><p class="section-label">Read-only preview passed</p><h3 id="bootstrap-preview-title">—</h3><small id="bootstrap-preview-id">—</small></div></div>
+        <div class="bootstrap-preview-metrics"><div><strong id="bootstrap-preview-chambers">—</strong><small>Chambers</small></div><div><strong id="bootstrap-preview-contests">—</strong><small>Contests</small></div><div><strong id="bootstrap-preview-candidates">—</strong><small>Candidates</small></div></div>
+        <dl class="bootstrap-preview-details"><div><dt>Polling day</dt><dd id="bootstrap-preview-date">—</dd></div><div><dt>Matched people</dt><dd id="bootstrap-preview-people">—</dd></div><div><dt>Unmatched people</dt><dd id="bootstrap-preview-unmatched-people">—</dd></div><div><dt>Reference snapshot</dt><dd id="bootstrap-preview-references">—</dd></div></dl>
+        <div class="callout info"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 11v6m0-10h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/></svg><span>No database rows have changed. Starting registration will work only on an isolated checksum-verified copy.</span></div>
+        <label class="check-row compact"><input type="checkbox" id="bootstrap-confirm"><span><strong>I have checked the event number, polling day, chambers, vacancy settings and the current federal House IRV/Senate STV systems.</strong></span></label>
+        <div class="form-actions between"><button class="button secondary" type="button" id="bootstrap-edit-button">Edit details</button><button class="button primary" type="button" id="run-bootstrap-button" disabled>Start registration</button></div>
+      </section>
+    </section>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

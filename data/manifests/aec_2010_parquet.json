@@ -1,0 +1,254 @@
+{
+  "created_at": "2026-07-22T15:38:37.123317+00:00",
+  "partition_count": 31,
+  "partitions": [
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_0292babe-c622-5306-9de7-43d07dc0680b",
+      "row_count": 1381,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_0292babe-c622-5306-9de7-43d07dc0680b/part-00000.parquet",
+      "sha256": "d6b09992c2bf85210bf03236adbd745be710c9bbc60af9a6a897dedc17483e3f"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_0faaa082-911b-5fd4-a69e-585e8558d1df",
+      "row_count": 329,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_0faaa082-911b-5fd4-a69e-585e8558d1df/part-00000.parquet",
+      "sha256": "b683062a019d9a02de13266adf54961ba1115093c0f11746fba35b44103bae79"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_12967957-fb92-5f78-9fc6-6775db34bc4b",
+      "row_count": 2910,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=vote_result/source_revision_id=source_revision_12967957-fb92-5f78-9fc6-6775db34bc4b/part-00000.parquet",
+      "sha256": "f633db2b0bd30200393c0bd76f5b8a3a915dbf0514f90d3ca46f391d48d7a718"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_1ce361c2-117f-5176-a647-4c971f4a45f3",
+      "row_count": 17902,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_1ce361c2-117f-5176-a647-4c971f4a45f3/part-00000.parquet",
+      "sha256": "ab3fbb6cbc817d4874488a0cec9a7c963dc4d511c96ee3e1c4220a7101ba487c"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_263f7e04-1904-5817-9961-3e6a39d0483a",
+      "row_count": 19033,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_263f7e04-1904-5817-9961-3e6a39d0483a/part-00000.parquet",
+      "sha256": "2a17121a3f4de339a1f023ac2be212934f20e8886649f5a76b239aee39de47cf"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_2c617ade-1f0b-50e4-b45f-a5d5ea815d53",
+      "row_count": 44755,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_2c617ade-1f0b-50e4-b45f-a5d5ea815d53/part-00000.parquet",
+      "sha256": "d87df37c027297e750a72998338eb22f5311674d9e4561022bad40ff37976310"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_44013971-5f72-5162-9ce7-768f3d6c0fe0",
+      "row_count": 5943,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_44013971-5f72-5162-9ce7-768f3d6c0fe0/part-00000.parquet",
+      "sha256": "4d73b5c618b44c6f0f5b1f91abf238fb5f247f7e6992a49fa228bd31245569f6"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_661079c4-5f1c-509d-92ed-d47d5e686907",
+      "row_count": 750,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_661079c4-5f1c-509d-92ed-d47d5e686907/part-00000.parquet",
+      "sha256": "57ce7484bbac33fe2b8500e300e40874f49c75490bf56629f454f6905cd38496"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_68c0cd36-b728-5b56-9517-2df870b6941a",
+      "row_count": 420,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=vote_result/source_revision_id=source_revision_68c0cd36-b728-5b56-9517-2df870b6941a/part-00000.parquet",
+      "sha256": "505b6cb69cd132ebc3af31a71d0208ec4737b2bfd5b3c8bf52c3afe38345854b"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_6b60352a-2785-5866-ac24-47604be07c0f",
+      "row_count": 9102,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_6b60352a-2785-5866-ac24-47604be07c0f/part-00000.parquet",
+      "sha256": "7819b237f9eb5bc3900beae98938cb82622716a796868bb1afd0c78ae3f112f1"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_7578568d-3804-57b3-b7fe-e145b40ac5da",
+      "row_count": 556,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_7578568d-3804-57b3-b7fe-e145b40ac5da/part-00000.parquet",
+      "sha256": "69cb173a99f2d0b808559db4231878e75150967c203254242ec8df9c72f1ffc5"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_81dca324-03a4-519a-830c-02798d1c422f",
+      "row_count": 5851,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_81dca324-03a4-519a-830c-02798d1c422f/part-00000.parquet",
+      "sha256": "909c3752ad839d6ca1fda8e2cc7c21fbcb2410faad47efcb95cedd223db70d88"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_8ac9409e-df2b-528f-a746-8abf20da996e",
+      "row_count": 2100,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_8ac9409e-df2b-528f-a746-8abf20da996e/part-00000.parquet",
+      "sha256": "dd8f5a4f8a6811ebe1857290b08032fb06532c8500f08ab908728cd56848bf16"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_9c335bcb-e3b2-5224-a3ba-10eb25906d10",
+      "row_count": 4578,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_9c335bcb-e3b2-5224-a3ba-10eb25906d10/part-00000.parquet",
+      "sha256": "91bdc3f6a75538a75cac113259d14564308bc73aa935a84a8597b30ceb781aa7"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_adcec1cb-6bbb-5b75-a47c-d165f4d9a65f",
+      "row_count": 32,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=vote_result/source_revision_id=source_revision_adcec1cb-6bbb-5b75-a47c-d165f4d9a65f/part-00000.parquet",
+      "sha256": "c432880d770fe7fcba05d3bbc3ef241f7d7dd49d69ae6c287bc2267a75bba134"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_bd45b301-4d3a-5d78-9519-0443d7f70c88",
+      "row_count": 576,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=vote_result/source_revision_id=source_revision_bd45b301-4d3a-5d78-9519-0443d7f70c88/part-00000.parquet",
+      "sha256": "4bb8720a835a782e37edc7cda02e8a9a2e9c7f0b39f8620c394349ba5ce72fa9"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_ea6d6c2a-fa26-5738-8e7a-f61c9ef6b691",
+      "row_count": 78648,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=vote_result/source_revision_id=source_revision_ea6d6c2a-fa26-5738-8e7a-f61c9ef6b691/part-00000.parquet",
+      "sha256": "6fc0a3837c0f91563ec882e72a24c65666792283edcaa04da9d1924142ae3291"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_ed04ca5a-17ce-5e3b-bb30-f642383543a2",
+      "row_count": 40,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_ed04ca5a-17ce-5e3b-bb30-f642383543a2/part-00000.parquet",
+      "sha256": "6201e2b81e0d3fa690352de838eb7fe252e033261540b4486ca72159cd41fe68"
+    },
+    {
+      "dataset_family": "vote_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_f28d348b-3e26-52fe-9e07-18ecb09b8df4",
+      "row_count": 10882,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=vote_result/source_revision_id=source_revision_f28d348b-3e26-52fe-9e07-18ecb09b8df4/part-00000.parquet",
+      "sha256": "e36b0f61a219bae3578971cb06cb187585ba65b42e5924b40ccc76f7dfab9fd4"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_32f56d17-9b45-58cf-af64-c0f3e9ab643c",
+      "row_count": 900,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=participation_result/source_revision_id=source_revision_32f56d17-9b45-58cf-af64-c0f3e9ab643c/part-00000.parquet",
+      "sha256": "f6bd79236286dbdf7eaa06c397a1d0d58179244f6548a7e2bc944a19c4c876b2"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_551ae465-021a-56b1-a573-9c98b872f759",
+      "row_count": 48,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=participation_result/source_revision_id=source_revision_551ae465-021a-56b1-a573-9c98b872f759/part-00000.parquet",
+      "sha256": "2c48b1346c0d71ed0f58150a0e6cc404bb1cc6757990f224fe6019a4e2fe8e95"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_7f3513d6-09fd-5c65-b030-3bf26afaf455",
+      "row_count": 300,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=participation_result/source_revision_id=source_revision_7f3513d6-09fd-5c65-b030-3bf26afaf455/part-00000.parquet",
+      "sha256": "11990babfe01b9c76a414cb0ade01606764caf1221ca6e18e8c8f57f5428011f"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_87794caf-8d3d-5151-ac21-134014b56e01",
+      "row_count": 150,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=participation_result/source_revision_id=source_revision_87794caf-8d3d-5151-ac21-134014b56e01/part-00000.parquet",
+      "sha256": "4dde2b1402967421a162370054fa89d2960575fcac437633dac653cc28ab6892"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_a5496724-f550-52f5-b5b1-69ac1dbeaa8b",
+      "row_count": 24,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=participation_result/source_revision_id=source_revision_a5496724-f550-52f5-b5b1-69ac1dbeaa8b/part-00000.parquet",
+      "sha256": "fd89b1c629c3ec498425559e5c064bb8091f81686b04a8f6fd65d0056a447086"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_b09c3e2a-ca21-5195-a64c-31ca6034e658",
+      "row_count": 450,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=participation_result/source_revision_id=source_revision_b09c3e2a-ca21-5195-a64c-31ca6034e658/part-00000.parquet",
+      "sha256": "6fccc9bd2a65378d9b7d124fb39bf7d16cbbc6daffdb45b25f9fb2e2bba2ea77"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_c2e28a0c-64dd-570f-8dbe-55cd25748cfb",
+      "row_count": 16,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=participation_result/source_revision_id=source_revision_c2e28a0c-64dd-570f-8dbe-55cd25748cfb/part-00000.parquet",
+      "sha256": "d9ded27cd8fed162519b16a4f109ca955269514a80709407e19291d1a5c19d43"
+    },
+    {
+      "dataset_family": "participation_result",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_e9398664-52d8-5e1a-a1fd-2cd1fffbd46e",
+      "row_count": 8,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=participation_result/source_revision_id=source_revision_e9398664-52d8-5e1a-a1fd-2cd1fffbd46e/part-00000.parquet",
+      "sha256": "ae25384fbae207ed34fa6b55914f721d9811ae30a619cc9dc8636ae5c7153c4a"
+    },
+    {
+      "dataset_family": "count_round",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_b680d133-8f0e-50ff-8e5f-06d1ee7bd648",
+      "row_count": 699,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=count_round/source_revision_id=source_revision_b680d133-8f0e-50ff-8e5f-06d1ee7bd648/part-00000.parquet",
+      "sha256": "7779e469a3f270a756e4ec1a307570105fc252f005943978c8e9f5f9dfa9c9c4"
+    },
+    {
+      "dataset_family": "count_round",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_cbe14db5-a01c-579f-b2a4-2e6e8dabde8b",
+      "row_count": 1176,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=count_round/source_revision_id=source_revision_cbe14db5-a01c-579f-b2a4-2e6e8dabde8b/part-00000.parquet",
+      "sha256": "a11283c9e77111aaabe8a2f04bab1b416335919852669667631e8cb6933b0708"
+    },
+    {
+      "dataset_family": "count_candidate_total",
+      "chamber_code": "house",
+      "source_revision_id": "source_revision_b680d133-8f0e-50ff-8e5f-06d1ee7bd648",
+      "row_count": 4358,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=house/dataset_family=count_candidate_total/source_revision_id=source_revision_b680d133-8f0e-50ff-8e5f-06d1ee7bd648/part-00000.parquet",
+      "sha256": "41aade045f6c0ae9a8667088a0e4c66b256286069c6168a03162f1f34d3c6864"
+    },
+    {
+      "dataset_family": "count_candidate_total",
+      "chamber_code": "senate",
+      "source_revision_id": "source_revision_cbe14db5-a01c-579f-b2a4-2e6e8dabde8b",
+      "row_count": 70042,
+      "path": "data/parquet/aec_2010/facts/jurisdiction_code=fed/election_year=2010/election_id=election_fed_2010_08_21_general/chamber_code=senate/dataset_family=count_candidate_total/source_revision_id=source_revision_cbe14db5-a01c-579f-b2a4-2e6e8dabde8b/part-00000.parquet",
+      "sha256": "df41ffaec6c0316b30ade5c8c3784be9275b73676e60b1e6e66b824e4550a4b4"
+    }
+  ]
+}

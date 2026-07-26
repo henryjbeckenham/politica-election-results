@@ -1,0 +1,48 @@
+contract_version: 1.0.0
+boundary_id: aec_federal_electoral_boundaries_2016_05_09
+title: Australian federal electoral boundaries used at the 2016 federal election
+coverage: Australia
+feature_count: 150
+election_id: election_fed_2016_07_02_general
+effective_as_at: 2016-05-09
+coordinate_reference_system:
+  name: GDA94
+  epsg: 4283
+
+source:
+  publisher: Australian Electoral Commission
+  landing_page_url: https://www.aec.gov.au/Electorates/gis/gis_datadownload.htm
+  download_url: https://www.aec.gov.au/electorates/gis/files/national-midmif-09052016.zip
+  source_archive_path: config/boundaries/source/national-midmif-09052016.zip
+  source_archive_size_bytes: 11341288
+  source_archive_sha256: 603776fbac989ea2d9028e11c8e69ec4c5d092d02d87ded4a1b6d73bda1fda3d
+  source_page_updated: 2016-05-09
+  source_page_election_label: 2016
+  source_components:
+    COM_ELB.DAT: e77ef3933c8b6f8cfbf5a8c05da0e09a7f05069f79950fff4d29b7c21e048f3a
+    COM_ELB.ID: 21b8338c3f971374566ed8e955967c1fa5454b608390e7049aff5a3421dac1cb
+    COM_ELB.IND: 934f16d97f8028e6ae46f800d9662568f872c83b30ade88a3ede9cd00cb99b42
+    COM_ELB.MAP: e160180dfdce3d20fc8d96b785e69e9cf892ddaefe6553c1e81be7f6e560eb96
+    COM_ELB.TAB: de8e976a4d270ae39b7c8167b3baacb828de5b97ca365ac9b3e4e751ea1c7e2f
+
+derived_geometry:
+  format: GeoJSON
+  geometry_types: [Polygon, MultiPolygon]
+  feature_name_property: electorate
+  division_number_property: division_number
+  area_property: area_sq_km
+  source_path: config/boundaries/derived/house_electorates_2016.geojson
+  public_asset_path: boundaries/house_electorates_2016.geojson
+  size_bytes: 3299375
+  sha256: 3b1bf112d160e867f841b5f8dd2f0de1940b050ba0ba88ec0be6740d99858261
+  transformation: Topology-preserving simplification at 0.001 degrees; coordinates rounded to four decimal places; AEC election-specific division identifiers joined by unique division name; no feature removed.
+
+attribution:
+  copyright: © Commonwealth of Australia (Australian Electoral Commission)
+  notice: This product (Politica Election Results) incorporates Australian Electoral Commission federal electoral boundary data. The AEC has not evaluated the data as simplified and incorporated into Politica and gives no warranty regarding its accuracy, completeness, currency or suitability for any particular purpose.
+  licence_url: https://www.aec.gov.au/Electorates/gis/GIS_Data_Download_Data_Licence.htm
+
+governance:
+  read_only: true
+  canonical_database_mutation: false
+  replacement_rule: A corrected historical boundary dataset requires a new contract version, source checksum and derived-geometry checksum; existing website releases remain immutable.

@@ -1,0 +1,188 @@
+catalogue_id: politica_federal_general_elections_1901_2022
+catalogue_version: 1.0.0
+stage: "14.1"
+status: governed_inventory_only
+scope:
+  jurisdiction: AU
+  election_level: federal
+  election_class: general_election
+  first_year: 1901
+  last_year: 2022
+  election_count: 47
+  existing_election_excluded: 2025
+  exclusions:
+    - federal_by_elections
+    - senate_only_periodic_elections
+    - referendums_and_plebiscites
+    - state_and_territory_elections
+
+authorities:
+  aec:
+    authority_name: Australian Electoral Commission
+    tally_archive: https://results.aec.gov.au/
+    official_statistics: https://www.aec.gov.au/elections/federal_elections/Stats_CDRom.htm
+    election_dates: https://www.aec.gov.au/elections/federal_elections/election-dates.htm
+    boundary_catalogue: https://www.aec.gov.au/electorates/gis/gis_datadownload.htm
+  aph_handbook:
+    authority_name: Parliament of Australia, Parliamentary Handbook
+    site_base: https://handbook.aph.gov.au
+    api_base: https://handbookapi.aph.gov.au/api/Elections
+    election_index_endpoint: https://handbookapi.aph.gov.au/api/Elections/Elections
+  parliamentary_library:
+    authority_name: Parliament of Australia, Parliamentary Library
+    federal_results_1901_2016: https://www.aph.gov.au/About_Parliament/Parliamentary_Departments/Parliamentary_Library/pubs/rp/rp1617/FederalElectionResults
+  australian_election_database:
+    authority_name: Australian Data Archive / University of Western Australia
+    doi: 10.26193/HZYUXD
+    landing_page: https://doi.org/10.26193/HZYUXD
+    role: restricted_secondary_corroboration
+
+legacy_archives:
+  aec_2001:
+    url: https://www.aec.gov.au/About_AEC/Publications/statistics/files/aec-2001-election-statistics.zip
+    filename: aec-2001-election-statistics.zip
+    covers_years: [2001]
+    verified_sha256: 73069fc7c4958388bbc559e15430c6d69268b117fdb1cee8ffd37ba90ae4b616
+    verified_archive_members: 1754
+    import_files_per_election: 6
+    import_format: semicolon_delimited_text
+  aec_1993_1996_1998:
+    url: https://www.aec.gov.au/About_AEC/Publications/statistics/files/aec-1993-1996-1998-election-statistics.zip
+    filename: aec-1993-1996-1998-election-statistics.zip
+    covers_years: [1993, 1996, 1998]
+    verified_sha256: ee3b46be593dfd2b6e8f29ca1acf78a1ae4a86f0dfd0aba71f33248bdbb025e8
+    verified_archive_members: 2519
+    import_files_per_election: 6
+    import_format: semicolon_delimited_text
+
+modern_profiles:
+  tally_post_2016:
+    expected_primary_source_count: 45
+    source_groups: [aec_tally_common, aec_house_tpp_by_vote_type, aec_senate_formal_preferences]
+    senate_ballot_regime: optional_preferential_above_and_below_line
+  tally_gvt_with_btl:
+    expected_primary_source_count: 47
+    source_groups: [aec_tally_common, aec_senate_group_voting_tickets, aec_senate_btl_preferences]
+    senate_ballot_regime: group_voting_ticket_with_below_the_line_preferences
+  tally_gvt_without_btl:
+    expected_primary_source_count: 39
+    source_groups: [aec_tally_common, aec_senate_group_voting_tickets]
+    senate_ballot_regime: group_voting_ticket_without_ballot_level_btl_downloads
+
+source_groups:
+  aec_tally_common:
+    - {key: house_candidates, chamber: house, family: candidates, location: Downloads, filename: "HouseCandidatesDownload-{event_id}.csv"}
+    - {key: house_elected, chamber: house, family: outcomes, location: Downloads, filename: "HouseMembersElectedDownload-{event_id}.csv"}
+    - {key: house_fp_vote_type, chamber: house, family: first_preferences, location: Downloads, filename: "HouseFirstPrefsByCandidateByVoteTypeDownload-{event_id}.csv"}
+    - {key: house_fp_polling, chamber: house, family: first_preferences_polling_place, location: Downloads, filename: "HouseStateFirstPrefsByPollingPlaceDownload-{event_id}-{state}.csv", states: [NSW, VIC, QLD, WA, SA, TAS, ACT, NT]}
+    - {key: house_tcp_vote_type, chamber: house, family: two_candidate_preferred, location: Downloads, filename: "HouseTcpByCandidateByVoteTypeDownload-{event_id}.csv"}
+    - {key: house_tcp_polling, chamber: house, family: two_candidate_preferred_polling_place, location: Downloads, filename: "HouseTcpByCandidateByPollingPlaceDownload-{event_id}.csv"}
+    - {key: house_tpp_state, chamber: house, family: two_party_preferred_state, location: Downloads, filename: "HouseTppByStateDownload-{event_id}.csv"}
+    - {key: house_tpp_division, chamber: house, family: two_party_preferred_division, location: Downloads, filename: "HouseTppByDivisionDownload-{event_id}.csv"}
+    - {key: house_tpp_polling, chamber: house, family: two_party_preferred_polling_place, location: Downloads, filename: "HouseTppByPollingPlaceDownload-{event_id}.csv"}
+    - {key: house_distribution, chamber: house, family: distribution_of_preferences, location: Downloads, filename: "HouseDopByDivisionDownload-{event_id}.csv"}
+    - {key: enrolment_division, chamber: both, family: enrolment, location: Downloads, filename: "GeneralEnrolmentByDivisionDownload-{event_id}.csv"}
+    - {key: house_informal_division, chamber: house, family: participation, location: Downloads, filename: "HouseInformalByDivisionDownload-{event_id}.csv"}
+    - {key: house_turnout_division, chamber: house, family: participation, location: Downloads, filename: "HouseTurnoutByDivisionDownload-{event_id}.csv"}
+    - {key: house_votes_division, chamber: house, family: participation, location: Downloads, filename: "HouseVotesCountedByDivisionDownload-{event_id}.csv"}
+    - {key: polling_places, chamber: both, family: reporting_units, location: Downloads, filename: "GeneralPollingPlacesDownload-{event_id}.csv"}
+    - {key: senate_candidates, chamber: senate, family: candidates, location: Downloads, filename: "SenateCandidatesDownload-{event_id}.csv"}
+    - {key: senate_elected, chamber: senate, family: outcomes, location: Downloads, filename: "SenateSenatorsElectedDownload-{event_id}.csv"}
+    - {key: senate_fp_state_vote_type, chamber: senate, family: first_preferences, location: Downloads, filename: "SenateFirstPrefsByStateByVoteTypeDownload-{event_id}.csv"}
+    - {key: senate_fp_division_vote_type, chamber: senate, family: first_preferences_division, location: Downloads, filename: "SenateFirstPrefsByDivisionByVoteTypeDownload-{event_id}.csv"}
+    - {key: senate_fp_group_vote_type, chamber: senate, family: first_preferences_group, location: Downloads, filename: "SenateFirstPrefsByGroupByVoteTypeDownload-{event_id}.csv"}
+    - {key: senate_fp_state_group_vote_type, chamber: senate, family: first_preferences_group, location: Downloads, filename: "SenateFirstPrefsByStateByGroupByVoteTypeDownload-{event_id}.csv"}
+    - {key: enrolment_state, chamber: both, family: enrolment, location: Downloads, filename: "GeneralEnrolmentByStateDownload-{event_id}.csv"}
+    - {key: senate_informal_state, chamber: senate, family: participation, location: Downloads, filename: "SenateInformalByStateDownload-{event_id}.csv"}
+    - {key: senate_turnout_state, chamber: senate, family: participation, location: Downloads, filename: "SenateTurnoutByStateDownload-{event_id}.csv"}
+    - {key: senate_votes_state, chamber: senate, family: participation, location: Downloads, filename: "SenateVotesCountedByStateDownload-{event_id}.csv"}
+    - {key: senate_informal_division, chamber: senate, family: participation_division, location: Downloads, filename: "SenateInformalByDivisionDownload-{event_id}.csv"}
+    - {key: senate_turnout_division, chamber: senate, family: participation_division, location: Downloads, filename: "SenateTurnoutByDivisionDownload-{event_id}.csv"}
+    - {key: senate_votes_division, chamber: senate, family: participation_division, location: Downloads, filename: "SenateVotesCountedByDivisionDownload-{event_id}.csv"}
+    - {key: senate_distribution, chamber: senate, family: distribution_of_preferences, location: External, filename: "SenateDopDownload-{event_id}.zip"}
+  aec_house_tpp_by_vote_type:
+    - {key: house_tpp_division_vote_type, chamber: house, family: two_party_preferred, location: Downloads, filename: "HouseTppByDivisionByVoteTypeDownload-{event_id}.csv"}
+  aec_senate_formal_preferences:
+    - {key: senate_formal_preferences, chamber: senate, family: formal_preferences, location: External, filename: "aec-senate-formalpreferences-{event_id}-{state}.zip", states: [NSW, VIC, QLD, WA, SA, TAS, ACT, NT]}
+  aec_senate_formal_candidate_information:
+    - {key: senate_formal_candidate_information, chamber: senate, family: formal_preference_candidate_information, location: External, filename: "aec-senate-candidateinformation-{event_id}.zip"}
+  aec_senate_group_voting_tickets:
+    - {key: senate_group_voting_tickets, chamber: senate, family: group_voting_tickets, location: Downloads, filename: "SenateGroupVotingTicketsDownload-{event_id}.csv"}
+    - {key: senate_gvt_usage_state, chamber: senate, family: group_voting_ticket_usage, location: Downloads, filename: "SenateUseOfGvtByStateDownload-{event_id}.csv"}
+    - {key: senate_gvt_usage_group, chamber: senate, family: group_voting_ticket_usage, location: Downloads, filename: "SenateUseOfGvtByGroupDownload-{event_id}.csv"}
+  aec_senate_btl_preferences:
+    - {key: senate_btl_preferences, chamber: senate, family: below_the_line_preferences, location: External, filename: "SenateStateBtlDownload-{event_id}-{state}.zip", states: [NSW, VIC, QLD, WA, SA, TAS, ACT, NT]}
+
+aph_endpoint_templates:
+  baseline:
+    - {key: aph_election, chamber: both, scope: election, endpoint: "Election?electionId={aph_election_id}"}
+    - {key: aph_house_candidates, chamber: house, scope: election, endpoint: "Candidates?electionId={aph_election_id}"}
+    - {key: aph_house_divisions, chamber: house, scope: election, endpoint: "Divisions?state=&year={year}"}
+    - {key: aph_house_elected, chamber: house, scope: election, endpoint: "MembersElected?year={year}"}
+    - {key: aph_senate_candidates, chamber: senate, scope: election, endpoint: "SenateCandidates?year={year}"}
+    - {key: aph_senate_elected, chamber: senate, scope: election, endpoint: "SenatorsElected?year={year}"}
+  state_cascade:
+    - {key: aph_senate_state_statistics, chamber: senate, scope: state, endpoint: "SenateStateStatistics?state={state}&year={year}"}
+    - {key: aph_senate_by_candidate, chamber: senate, scope: state, endpoint: "SenateByCandidate?state={state}&year={year}"}
+    - {key: aph_senate_by_group, chamber: senate, scope: state, endpoint: "SenateByGroup?state={state}&year={year}"}
+    - {key: aph_senate_group_quotas, chamber: senate, scope: state, endpoint: "SenateGroupQuotas?state={state}&year={year}"}
+  division_cascade:
+    - {key: aph_house_division_statistics, chamber: house, scope: division, endpoint: "DivisionStatistics?divisionName={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_house_first_preferences, chamber: house, scope: division, endpoint: "FirstPreferenceCount?divisionName={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_house_first_preferences_vote_type, chamber: house, scope: division, endpoint: "FirstPreferencesByVoteType?divisionName={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_house_polling_places, chamber: house, scope: division, endpoint: "PollingPlaces?divisionName={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_house_tcp, chamber: house, scope: division, endpoint: "TwoCandidatePreferred?divisionName={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_senate_by_division, chamber: senate, scope: division, endpoint: "SenateByDivision?division={division}&year={year}"}
+  polling_place_cascade:
+    - {key: aph_house_first_preferences_polling_place, chamber: house, scope: polling_place, endpoint: "FirstPreferencesByPollingPlace?pollingPlace={polling_place}&division={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_house_tcp_polling_place, chamber: house, scope: polling_place, endpoint: "TwoCandidatePreferredByPollingPlace?pollingPlace={polling_place}&division={division}&year={year}&electionId={aph_election_id}"}
+    - {key: aph_senate_polling_place, chamber: senate, scope: polling_place, endpoint: "SenateByPollingPlace?pollingPlace={polling_place}&division={division}&year={year}&electionId={aph_election_id}"}
+
+elections:
+  - {year: 2022, date: 2022-05-21, aph_election_id: 404, senate_contested: true, tier: full_tally, aec_event_id: 27966, web_root: Website, menu_case: Csv, modern_profile: tally_post_2016, boundary_url: "https://www.aec.gov.au/Electorates/gis/files/2021-Cwlth_electoral_boundaries_ESRI.zip"}
+  - {year: 2019, date: 2019-05-18, aph_election_id: 403, senate_contested: true, tier: full_tally, aec_event_id: 24310, web_root: Website, menu_case: Csv, modern_profile: tally_post_2016, boundary_url: "https://www.aec.gov.au/electorates/gis/files/national-esri-fe2019.zip"}
+  - {year: 2016, date: 2016-07-02, aph_election_id: 402, senate_contested: true, tier: full_tally, aec_event_id: 20499, web_root: Website, menu_case: Csv, modern_profile: tally_post_2016, additional_source_groups: [aec_senate_formal_candidate_information], expected_primary_source_count: 46, boundary_url: "https://www.aec.gov.au/electorates/gis/files/national-midmif-09052016.zip"}
+  - {year: 2013, date: 2013-09-07, aph_election_id: 401, senate_contested: true, tier: full_tally, aec_event_id: 17496, web_root: Website, menu_case: csv, modern_profile: tally_gvt_with_btl, boundary_url: "https://www.aec.gov.au/electorates/gis/files/national-esri-16122011.zip", note: "The original Western Australian Senate result was voided; the 2014 WA Senate election is a separate future case."}
+  - {year: 2010, date: 2010-08-21, aph_election_id: 400, senate_contested: true, tier: full_tally, aec_event_id: 15508, web_root: Website, menu_case: csv, modern_profile: tally_gvt_with_btl, boundary_url: "https://www.aec.gov.au/electorates/gis/files/national-esri-2010.zip"}
+  - {year: 2007, date: 2007-11-24, aph_election_id: 399, senate_contested: true, tier: full_tally, aec_event_id: 13745, web_root: Website, menu_case: csv, modern_profile: tally_gvt_with_btl, boundary_url: null}
+  - {year: 2004, date: 2004-10-09, aph_election_id: 398, senate_contested: true, tier: full_tally, aec_event_id: 12246, web_root: results, menu_case: Csv, modern_profile: tally_gvt_without_btl, boundary_url: null}
+  - {year: 2001, date: 2001-11-10, aph_election_id: 406, senate_contested: true, tier: legacy_archive, aec_event_id: 10822, archive_id: aec_2001}
+  - {year: 1998, date: 1998-10-03, aph_election_id: 240, senate_contested: true, tier: legacy_archive, archive_id: aec_1993_1996_1998}
+  - {year: 1996, date: 1996-03-02, aph_election_id: 239, senate_contested: true, tier: legacy_archive, archive_id: aec_1993_1996_1998}
+  - {year: 1993, date: 1993-03-13, aph_election_id: 238, senate_contested: true, tier: legacy_archive, archive_id: aec_1993_1996_1998}
+  - {year: 1990, date: 1990-03-24, aph_election_id: 237, senate_contested: true, tier: handbook_api}
+  - {year: 1987, date: 1987-07-11, aph_election_id: 236, senate_contested: true, tier: handbook_api}
+  - {year: 1984, date: 1984-12-01, aph_election_id: 235, senate_contested: true, tier: handbook_api}
+  - {year: 1983, date: 1983-03-05, aph_election_id: 234, senate_contested: true, tier: handbook_api}
+  - {year: 1980, date: 1980-10-18, aph_election_id: 233, senate_contested: true, tier: handbook_api}
+  - {year: 1977, date: 1977-12-10, aph_election_id: 232, senate_contested: true, tier: handbook_api}
+  - {year: 1975, date: 1975-12-13, aph_election_id: 231, senate_contested: true, tier: handbook_api}
+  - {year: 1974, date: 1974-05-18, aph_election_id: 230, senate_contested: true, tier: handbook_api}
+  - {year: 1972, date: 1972-12-02, aph_election_id: 229, senate_contested: true, senate_scope: casual_vacancy_queensland, tier: handbook_api}
+  - {year: 1969, date: 1969-10-25, aph_election_id: 228, senate_contested: true, senate_scope: casual_vacancies_victoria_south_australia, tier: handbook_api}
+  - {year: 1966, date: 1966-11-26, aph_election_id: 227, senate_contested: true, senate_scope: casual_vacancies_nsw_victoria_queensland_wa, tier: handbook_api}
+  - {year: 1963, date: 1963-11-30, aph_election_id: 226, senate_contested: true, senate_scope: casual_vacancy_queensland, tier: handbook_api}
+  - {year: 1961, date: 1961-12-09, aph_election_id: 225, senate_contested: true, tier: handbook_api}
+  - {year: 1958, date: 1958-11-22, aph_election_id: 224, senate_contested: true, tier: handbook_api}
+  - {year: 1955, date: 1955-12-10, aph_election_id: 223, senate_contested: true, tier: handbook_api}
+  - {year: 1954, date: 1954-05-29, aph_election_id: 222, senate_contested: false, tier: handbook_api}
+  - {year: 1951, date: 1951-04-28, aph_election_id: 221, senate_contested: true, tier: handbook_api}
+  - {year: 1949, date: 1949-12-10, aph_election_id: 220, senate_contested: true, tier: handbook_api}
+  - {year: 1946, date: 1946-09-28, aph_election_id: 219, senate_contested: true, tier: handbook_api}
+  - {year: 1943, date: 1943-08-21, aph_election_id: 218, senate_contested: true, tier: handbook_api}
+  - {year: 1940, date: 1940-09-21, aph_election_id: 217, senate_contested: true, tier: handbook_api}
+  - {year: 1937, date: 1937-10-23, aph_election_id: 216, senate_contested: true, tier: handbook_api}
+  - {year: 1934, date: 1934-09-15, aph_election_id: 215, senate_contested: true, tier: handbook_api}
+  - {year: 1931, date: 1931-12-19, aph_election_id: 214, senate_contested: true, tier: handbook_api}
+  - {year: 1929, date: 1929-10-12, aph_election_id: 213, senate_contested: false, tier: handbook_api}
+  - {year: 1928, date: 1928-11-17, aph_election_id: 212, senate_contested: true, tier: handbook_api}
+  - {year: 1925, date: 1925-11-14, aph_election_id: 211, senate_contested: true, tier: handbook_api}
+  - {year: 1922, date: 1922-12-16, aph_election_id: 210, senate_contested: true, tier: handbook_api}
+  - {year: 1919, date: 1919-12-13, aph_election_id: 209, senate_contested: true, tier: handbook_api}
+  - {year: 1917, date: 1917-05-05, aph_election_id: 208, senate_contested: true, tier: handbook_api}
+  - {year: 1914, date: 1914-09-05, aph_election_id: 207, senate_contested: true, tier: handbook_api}
+  - {year: 1913, date: 1913-05-31, aph_election_id: 206, senate_contested: true, tier: handbook_api}
+  - {year: 1910, date: 1910-04-13, aph_election_id: 205, senate_contested: true, tier: handbook_api}
+  - {year: 1906, date: 1906-12-12, aph_election_id: 204, senate_contested: true, tier: handbook_api}
+  - {year: 1903, date: 1903-12-16, aph_election_id: 203, senate_contested: true, tier: handbook_api}
+  - {year: 1901, date: 1901-03-29, aph_election_id: 202, senate_contested: true, tier: handbook_api, note: "State polling occurred on 29 and 30 March; South Australia and Tasmania used multi-member House arrangements under state law."}

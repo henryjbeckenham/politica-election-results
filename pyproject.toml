@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "politica-election-results-database"
+version = "1.8.0"
+description = "Governed Australian election-results database with a local ingestion and reference-synchronisation application."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "duckdb>=1.4,<2.0",
+  "fastapi>=0.115,<1.0",
+  "filelock>=3.16,<4.0",
+  "google-api-python-client>=2.160,<3.0",
+  "google-auth>=2.35,<3.0",
+  "openpyxl>=3.1,<4.0",
+  "pydantic>=2.10,<3.0",
+  "python-dotenv>=1.0,<2.0",
+  "python-multipart>=0.0.18,<1.0",
+  "pytz>=2024.1,<2027.0",
+  "PyYAML>=6.0,<7.0",
+  "uvicorn[standard]>=0.34,<1.0",
+]
+
+[project.scripts]
+politica-erd-build = "politica_erd.build:main"
+politica-erd-validate = "politica_erd.validate:main"
+politica-erd-detect = "politica_erd.adapters.registry:main"
+politica-erd-download-2025 = "politica_erd.download_sources:main"
+politica-erd-download-historical = "politica_erd.download_historical_election:main"
+politica-erd-verify-publication = "politica_erd.verify_publication:main"
+politica-erd-import-2025 = "politica_erd.import_2025:main"
+politica-erd-import-2022 = "politica_erd.import_2022:main"
+politica-erd-install-2022-release = "politica_erd.install_2022_release:main"
+politica-erd-build-2022-delta = "politica_erd.build_2022_delta_package:main"
+politica-erd-verify-stage14-2 = "politica_erd.verify_stage14_2_install:main"
+politica-erd-import-2019 = "politica_erd.import_2019:main"
+politica-erd-install-2019-release = "politica_erd.install_2019_release:main"
+politica-erd-build-2019-delta = "politica_erd.build_2019_delta_package:main"
+politica-erd-verify-stage14-3 = "politica_erd.verify_stage14_3_install:main"
+politica-erd-import-2016 = "politica_erd.import_2016:main"
+politica-erd-install-2016-release = "politica_erd.install_2016_release:main"
+politica-erd-build-2016-delta = "politica_erd.build_2016_delta_package:main"
+politica-erd-verify-stage14-4 = "politica_erd.verify_stage14_4_install:main"
+politica-erd-import-2013 = "politica_erd.import_2013:main"
+politica-erd-install-2013-release = "politica_erd.install_2013_release:main"
+politica-erd-build-2013-delta = "politica_erd.build_2013_delta_package:main"
+politica-erd-verify-stage14-5 = "politica_erd.verify_stage14_5_install:main"
+politica-erd-import-2010 = "politica_erd.import_2010:main"
+politica-erd-install-2010-release = "politica_erd.install_2010_release:main"
+politica-erd-build-2010-delta = "politica_erd.build_2010_delta_package:main"
+politica-erd-verify-stage14-6 = "politica_erd.verify_stage14_6_install:main"
+politica-erd-correct-tcp-measures = "politica_erd.correct_tcp_measures:main"
+politica-erd-correct-person-links = "politica_erd.correct_person_links:main"
+politica-erd-complete-senate-groups = "politica_erd.complete_senate_groups:main"
+politica-erd-build-public-site = "politica_erd.static_site:main"
+politica-erd-verify-composition = "politica_erd.verify_composition:main"
+politica-erd-app = "politica_erd.app.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/politica_erd"]
