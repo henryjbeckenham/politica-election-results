@@ -20,12 +20,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p validation/stage5/work
-          curl --fail --location --retry 3 \
-            'https://drive.usercontent.google.com/download?id=1kqkF0TY4Me5yd3cZZE1Rl43FG3QIMcYu&export=download&confirm=t' \
-            --output validation/stage5/work/package.zip
+          python -m pip install --quiet gdown
+          gdown --id 1kqkF0TY4Me5yd3cZZE1Rl43FG3QIMcYu --output validation/stage5/work/package.zip
           echo 'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1  validation/stage5/work/package.zip' | sha256sum -c -
           unzip -q validation/stage5/work/package.zip -d validation/stage5/work
           ROOT="$(find validation/stage5/work -mindepth 1 -maxdepth 1 -type d | head -1)"
+          test -n "$ROOT"
           echo "ROOT=$ROOT" >> "$GITHUB_ENV"
 
       - name: Configure bounded live validation
@@ -112,10 +112,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "$ROOT"
-          python - <<'PY'
+          mkdir -p validation/stage5/final
+          if [ -n "${ROOT:-}" ] && [ -d "$ROOT/evidence" ]; then
+            cd "$ROOT"
+            python - <<'PY'
           from pathlib import Path
-          import hashlib, json, platform, subprocess
+          import json, platform, subprocess
           evidence=Path('evidence')
           summary={
             'package_sha256':'c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1',
@@ -129,14 +131,16 @@ jobs:
               summary[name]=json.loads(p.read_text())
           (evidence/'ci_summary.json').write_text(json.dumps(summary,indent=2,sort_keys=True))
           PY
-          zip -qr ../stage5-v0-2-networked-validation-evidence.zip evidence
-          sha256sum ../stage5-v0-2-networked-validation-evidence.zip > ../stage5-v0-2-networked-validation-evidence.sha256
+            zip -qr "$GITHUB_WORKSPACE/validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip" evidence
+          else
+            printf '%s\n' 'Package transfer or setup failed before evidence directory creation.' > validation/stage5/final/early_failure.txt
+            zip -q validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip validation/stage5/final/early_failure.txt
+          fi
+          sha256sum validation/stage5/final/stage5-v0-2-networked-validation-evidence.zip > validation/stage5/final/stage5-v0-2-networked-validation-evidence.sha256
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: stage5-v0-2-networked-validation-evidence
-          path: |
-            ${{ env.ROOT }}/../stage5-v0-2-networked-validation-evidence.zip
-            ${{ env.ROOT }}/../stage5-v0-2-networked-validation-evidence.sha256
+          path: validation/stage5/final/
           if-no-files-found: error
