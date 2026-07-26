@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T12:30:00+10:00",
+  "updated_at": "2026-07-26T22:10:00+10:00",
   "persistent_store": {
     "provider": "google_drive",
     "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
     "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
-    "status": "configured_partial",
+    "status": "configured",
     "folders": {
       "current": {
         "folder_id": "1TC1CKAs4Lha8Fptqt0ctkAw0KpjTlTZb",
@@ -41,12 +41,35 @@
     }
   },
   "current_release": {
-    "status": "not_admitted",
-    "stage": null,
-    "application_version": null,
-    "release_id": null,
-    "database": null,
-    "dependencies": []
+    "status": "release_verification_pending",
+    "stage": "14.6",
+    "application_version": "1.8.0",
+    "release_id": "release_1_8_0_2010_33214168bb0d50da",
+    "active_pointer": {
+      "file_id": "1e6AT65c5E9p8Nms5lA-DaaJAuIUGLyA4",
+      "filename": "active.json",
+      "size_bytes": 722,
+      "database_sha256_claim": "1b0524a99c6a0ad39ada424ff45dbc460bdbda65da62b1889855a8042502ac70"
+    },
+    "installed_release_archive": {
+      "file_id": "1b_kn9GdCVWvso57aHOBXYHE3N7sNkgbl",
+      "filename": "politica-stage14-6-33214168bb0d50da.zip",
+      "size_bytes": 1975108950,
+      "connector_readback": "blocked_above_100_mib"
+    },
+    "database": {
+      "sha256_claim": "1b0524a99c6a0ad39ada424ff45dbc460bdbda65da62b1889855a8042502ac70",
+      "verification_status": "pending_readback"
+    },
+    "dependencies": [
+      {
+        "type": "derived_electorate_boundaries",
+        "format": "GeoJSON",
+        "election_years": [2025, 2022, 2019, 2016, 2013, 2010],
+        "storage": "installed_release_archive",
+        "verification_status": "pending_readback"
+      }
+    ]
   },
   "migration_evidence": [
     {
@@ -84,6 +107,32 @@
       "stored_in_git": false,
       "status": "integrity_verified_pending_external_transfer",
       "target_folder_id": "1AjidgCFUz8_s4Q92cAwNpssgK8Cu6SZ3"
+    },
+    {
+      "filename": "Politica_Stage14_5_v1.7.0(1).zip",
+      "size_bytes": 448762864,
+      "stored_in_git": false,
+      "status": "available_and_integrity_verified",
+      "target_folder_id": "11Vd6SRhC8_bHIcdf5J1gPMogg7blnChQ"
+    },
+    {
+      "filename": "Politica_Stage14_6_v1.8.0(1).zip",
+      "size_bytes": 382434978,
+      "sha256": "8f377aae8fb384787e59706be86d95b8de0db072f4697053f0f3319384c08f7e",
+      "stored_in_git": false,
+      "status": "integrity_verified_source_published",
+      "target_folder_id": "1vNbxBlS-QLdskMA8HkVI_cJljMa3NC-P",
+      "cumulative_update": {
+        "filename": "Politica_Stage14_6_v1.8.0_Update.zip",
+        "size_bytes": 149048928,
+        "sha256": "ba387c5840e57d20b7de4556258e055b33a217c040f5c8cb5c4777b64b7d90f7"
+      },
+      "packaged_clean_integration": {
+        "status": "PASS",
+        "release_id": "release_1_8_0_2010_6396e7b7fa807851",
+        "database_sha256": "69779c47c1480eedbfe0a9ae844ff8037283e0e314377d11058706a3b4e7b752",
+        "election_years": [2025, 2022, 2019, 2016, 2013, 2010]
+      }
     }
   ]
 }

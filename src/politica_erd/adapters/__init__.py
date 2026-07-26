@@ -1,0 +1,2 @@
+"""Authority-specific source adapters."""
+

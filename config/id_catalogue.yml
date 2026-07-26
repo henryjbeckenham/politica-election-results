@@ -1,0 +1,47 @@
+namespace_uuid: 908ec7be-31c0-5ce7-9042-22cb3e6c5d7e
+normalisation:
+  case: lower
+  whitespace: collapse
+  unicode: nfkc
+  punctuation: slug_safe
+  separator: "|"
+
+entities:
+  authority:
+    public_pattern: authority_{authority_code}
+    components: [authority_code]
+  election:
+    public_pattern: election_{jurisdiction_code}_{election_date}_{election_type_code}
+    components: [jurisdiction_code, election_date, election_type_code]
+  election_chamber:
+    public_pattern: election_chamber_{election_token}_{chamber_code}
+    components: [election_id, chamber_code]
+  contest:
+    public_pattern: contest_{election_token}_{chamber_code}_{constituency_token}
+    components: [election_id, chamber_code, official_constituency_code_or_slug]
+  candidacy:
+    uuid5_prefix: candidacy
+    components: [contest_id, authority_candidate_key]
+  ballot_group:
+    uuid5_prefix: ballot_group
+    components: [contest_id, official_group_key]
+  reporting_unit:
+    uuid5_prefix: reporting_unit
+    components: [authority_id, official_reporting_unit_code]
+  source_file_revision:
+    uuid5_prefix: source_revision
+    components: [source_file_id, sha256]
+  fact:
+    uuid5_prefix: fact
+    components: [table_name, full_natural_grain, source_revision_id]
+  ballot:
+    uuid5_prefix: ballot
+    components: [ballot_dataset_id, anonymous_source_key]
+
+rules:
+  - Never regenerate Grand Database person_id, party_id or constituency_id.
+  - Never increment a sequence to bypass an identifier collision.
+  - Mutable names may be used only as a documented fallback token.
+  - Fact identifiers include the immutable source revision.
+  - Natural keys are recorded independently of Politica primary keys.
+

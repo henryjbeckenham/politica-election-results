@@ -1,0 +1,70 @@
+{
+  "database": "Politica Election Results Database",
+  "release_version": "0.2.0",
+  "schema_version": "0.2.0",
+  "release_status": "validated",
+  "built_at": "2026-07-22T15:38:37.123738+00:00",
+  "database_path": "data/stage14_6/politica_2010_delta.duckdb",
+  "database_size_bytes": 289419264,
+  "database_sha256": "25561cf825e566c92843020d5450810dc9b7d715665e172031891e8bbf1cfc29",
+  "source_manifest_sha256": "7341bc0d21f7ffe7430efe9f92309148278b29f04ad799b57843ce10257ee048",
+  "source_count": 47,
+  "import_run_id": "8c195724-f9ad-5d7f-9495-2080ab79b3a5",
+  "table_counts": {
+    "contests": 158,
+    "candidacies": 1198,
+    "reporting_units": 9109,
+    "vote_results": 205788,
+    "participation_results": 1896,
+    "count_rounds": 1875,
+    "count_candidate_totals": 74400,
+    "preference_transfers": 9239,
+    "outcomes": 190,
+    "lineage_records": 315232,
+    "ballot_datasets": 8,
+    "group_voting_tickets": 156,
+    "group_voting_ticket_preferences": 9048,
+    "formal_ballots": 493129,
+    "formal_ballot_preferences": 23659799
+  },
+  "validation": {
+    "status": "passed",
+    "blocker_count": 0,
+    "warning_count": 51,
+    "check_count": 28
+  },
+  "parquet_partition_count": 126,
+  "formal_preferences": {
+    "state_count": 8,
+    "ballot_count": 493129,
+    "preference_count": 23659799,
+    "above_the_line_ballot_count": 0,
+    "below_the_line_ballot_count": 493129,
+    "official_non_ticket_vote_count": 493142,
+    "unavailable_ballot_count": 13,
+    "represented_formal_vote_count": 12722220,
+    "file_count": 95
+  },
+  "migrations": [
+    {
+      "migration": "001_initial_schema.sql",
+      "sha256": "d5f47b8ee4d4f04ad81462575d8ef93760812a39ddaac90a22a3d1ecdfd006c6"
+    },
+    {
+      "migration": "002_seed_reference.sql",
+      "sha256": "65e8accd0f38149d2cec9a4424965251754d3141aaa3a06c0145996c33f072b7"
+    },
+    {
+      "migration": "003_stage_2_rules.sql",
+      "sha256": "5fc115dcce4dbcdadedb82558a0f9762a74c1aabf6b74537171b3825ed55fa54"
+    },
+    {
+      "migration": "004_stage14_5_pre_reform_senate.sql",
+      "sha256": "52cc49a27a551069b73acb4c2cb98f32edf32e5156882192c836b45a7f60d6a8"
+    },
+    {
+      "migration": "005_stage14_6_2010.sql",
+      "sha256": "a8269344533804b1edc6d6c79dd4cc1d6f962e641077ba5a5774f6a9de85a1dc"
+    }
+  ]
+}

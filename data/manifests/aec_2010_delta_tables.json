@@ -1,0 +1,459 @@
+{
+  "format": "politica_delta_table_parquet_v1",
+  "election_id": "election_fed_2010_08_21_general",
+  "table_count": 56,
+  "total_row_count": 855128,
+  "total_size_bytes": 41730082,
+  "maximum_file_size_bytes": 18925325,
+  "tables": [
+    {
+      "schema": "control",
+      "table": "adapter_registry",
+      "path": "data/stage14_6/tables/control/adapter_registry.parquet",
+      "row_count": 6,
+      "size_bytes": 2202,
+      "sha256": "51e91976679c4632859f4faaf09c7a778fe4e65b79f86ad06807920f91b29387"
+    },
+    {
+      "schema": "control",
+      "table": "chamber",
+      "path": "data/stage14_6/tables/control/chamber.parquet",
+      "row_count": 7,
+      "size_bytes": 1506,
+      "sha256": "a9833cd9d334f4760b34c1e77a857884b32f6f6e079a67a2aafe55d186eb2dab"
+    },
+    {
+      "schema": "control",
+      "table": "controlled_value",
+      "path": "data/stage14_6/tables/control/controlled_value.parquet",
+      "row_count": 119,
+      "size_bytes": 4859,
+      "sha256": "a08c5a43616202f173352d7581758e8d15ee5178479e83c4b4a769efe576c957"
+    },
+    {
+      "schema": "control",
+      "table": "data_dictionary",
+      "path": "data/stage14_6/tables/control/data_dictionary.parquet",
+      "row_count": 587,
+      "size_bytes": 14838,
+      "sha256": "ae828715d61cd3f673dbb48cab90a328c7305c02c396b840151132729573f1dd"
+    },
+    {
+      "schema": "control",
+      "table": "database_release",
+      "path": "data/stage14_6/tables/control/database_release.parquet",
+      "row_count": 2,
+      "size_bytes": 1694,
+      "sha256": "769d30df1ac8ca4a0ce22b5b9b57af5962134f5bc5fcdecf53397dd1a177cacf"
+    },
+    {
+      "schema": "control",
+      "table": "election_type",
+      "path": "data/stage14_6/tables/control/election_type.parquet",
+      "row_count": 9,
+      "size_bytes": 1618,
+      "sha256": "4c6818323f9d7fa9942fcd414d9515ec3453677f8c73b36ad1aaa2d7a4b9ad47"
+    },
+    {
+      "schema": "control",
+      "table": "electoral_authority",
+      "path": "data/stage14_6/tables/control/electoral_authority.parquet",
+      "row_count": 9,
+      "size_bytes": 1633,
+      "sha256": "ee7fa7b0b16993fec05349984355f50f33522889f9edbf3970cca58c5c59e8e2"
+    },
+    {
+      "schema": "control",
+      "table": "electoral_system_version",
+      "path": "data/stage14_6/tables/control/electoral_system_version.parquet",
+      "row_count": 2,
+      "size_bytes": 3523,
+      "sha256": "7dcfbe26df9f360adfd0e707dc7278dba70790e52077d3d1f17af3715ac5f28c"
+    },
+    {
+      "schema": "control",
+      "table": "jurisdiction",
+      "path": "data/stage14_6/tables/control/jurisdiction.parquet",
+      "row_count": 9,
+      "size_bytes": 1718,
+      "sha256": "c01dd7d842285f3e7bd9e728dfb24c533ecedd1489f97f013d84bd2162bffc25"
+    },
+    {
+      "schema": "control",
+      "table": "relationship_contract",
+      "path": "data/stage14_6/tables/control/relationship_contract.parquet",
+      "row_count": 118,
+      "size_bytes": 5837,
+      "sha256": "95958edbca9ed644e105defdc310cf14504e71dc978bef74f7eea8c713e95bb9"
+    },
+    {
+      "schema": "control",
+      "table": "schema_version",
+      "path": "data/stage14_6/tables/control/schema_version.parquet",
+      "row_count": 1,
+      "size_bytes": 1363,
+      "sha256": "9622ee5aeccd8a43420c227519cb1373b1798717a154612ea1539270132f3408"
+    },
+    {
+      "schema": "sync",
+      "table": "constituency",
+      "path": "data/stage14_6/tables/sync/constituency.parquet",
+      "row_count": 605,
+      "size_bytes": 46091,
+      "sha256": "613ca1c866a853cdc5b35e1db2cf5936c04ab89d842e371832d6268dd5800080"
+    },
+    {
+      "schema": "sync",
+      "table": "external_identifier",
+      "path": "data/stage14_6/tables/sync/external_identifier.parquet",
+      "row_count": 199,
+      "size_bytes": 6414,
+      "sha256": "167e15f340d8aae47601dc2011e3da02be366f566871ac424c00f323c909786b"
+    },
+    {
+      "schema": "sync",
+      "table": "party",
+      "path": "data/stage14_6/tables/sync/party.parquet",
+      "row_count": 20,
+      "size_bytes": 5471,
+      "sha256": "bb4b01d3831b17263fe8a79ce12a2f59119ca899abdd1b739d87707b31310df8"
+    },
+    {
+      "schema": "sync",
+      "table": "person",
+      "path": "data/stage14_6/tables/sync/person.parquet",
+      "row_count": 171,
+      "size_bytes": 16096,
+      "sha256": "411fbeb6ac742cd2656e7d13a7a956c9e4c2ab2a3fbe69f487dd5194cf7dc1c1"
+    },
+    {
+      "schema": "core",
+      "table": "ballot_group",
+      "path": "data/stage14_6/tables/core/ballot_group.parquet",
+      "row_count": 144,
+      "size_bytes": 5741,
+      "sha256": "5d7350a31476f92866f523bf9264ed1e48bb2fe9f38e6ad94aba982ac2feafb2"
+    },
+    {
+      "schema": "core",
+      "table": "ballot_group_membership",
+      "path": "data/stage14_6/tables/core/ballot_group_membership.parquet",
+      "row_count": 349,
+      "size_bytes": 14821,
+      "sha256": "53b18da317f91ac55fd6cd9f819f8043958ea6488a8113d158ff81a86bcc0f7f"
+    },
+    {
+      "schema": "core",
+      "table": "ballot_position",
+      "path": "data/stage14_6/tables/core/ballot_position.parquet",
+      "row_count": 1334,
+      "size_bytes": 47262,
+      "sha256": "0bd5a24f84e4682ab01fb266ecac27f5bcb97db0ae0860c5e0e36aaa7fedb2f6"
+    },
+    {
+      "schema": "core",
+      "table": "candidacy",
+      "path": "data/stage14_6/tables/core/candidacy.parquet",
+      "row_count": 1198,
+      "size_bytes": 51099,
+      "sha256": "78875a4cda66637bc8bfa8c860a3014f52b6af2fe93d4142470ffe09435ba0ed"
+    },
+    {
+      "schema": "core",
+      "table": "contest",
+      "path": "data/stage14_6/tables/core/contest.parquet",
+      "row_count": 158,
+      "size_bytes": 5943,
+      "sha256": "9e1ffabc8f8370d5749dee4c89280d68fc023da72087ad0a5d57b7187b1ac48f"
+    },
+    {
+      "schema": "core",
+      "table": "contest_constituency_snapshot",
+      "path": "data/stage14_6/tables/core/contest_constituency_snapshot.parquet",
+      "row_count": 158,
+      "size_bytes": 6728,
+      "sha256": "ef58622d65530594790aae4cc5fccb1d7907f05ce9c43ef75d521c927c5c8a55"
+    },
+    {
+      "schema": "core",
+      "table": "election",
+      "path": "data/stage14_6/tables/core/election.parquet",
+      "row_count": 1,
+      "size_bytes": 2523,
+      "sha256": "22409a31020212fd299b7fce9700fb20fb4211f4bb2599f9c3f7eb5cad72c561"
+    },
+    {
+      "schema": "core",
+      "table": "election_chamber",
+      "path": "data/stage14_6/tables/core/election_chamber.parquet",
+      "row_count": 2,
+      "size_bytes": 1826,
+      "sha256": "4b6c2a8f9c9f7959d8ad639eb38420125dd1c8aa57dfa400ad40bb0e408d19c5"
+    },
+    {
+      "schema": "core",
+      "table": "election_key_date",
+      "path": "data/stage14_6/tables/core/election_key_date.parquet",
+      "row_count": 1,
+      "size_bytes": 1493,
+      "sha256": "0f77bd09a19ca107867c059267f838661d3c268d73aa3437d13ef9714d716f68"
+    },
+    {
+      "schema": "core",
+      "table": "election_relationship",
+      "path": "data/stage14_6/tables/core/election_relationship.parquet",
+      "row_count": 0,
+      "size_bytes": 226,
+      "sha256": "73b488e4a3e342013078d0417b4cca34c2e7d3fe26291f41cb6c1219312097e5"
+    },
+    {
+      "schema": "geography",
+      "table": "boundary_geometry",
+      "path": "data/stage14_6/tables/geography/boundary_geometry.parquet",
+      "row_count": 0,
+      "size_bytes": 377,
+      "sha256": "6d143d1740f0816bd4aaf7942af0edecce19e24dc3f2be3cc92d61cfc8d7f63b"
+    },
+    {
+      "schema": "geography",
+      "table": "boundary_version",
+      "path": "data/stage14_6/tables/geography/boundary_version.parquet",
+      "row_count": 0,
+      "size_bytes": 331,
+      "sha256": "609124ee280641c58047a3b15aeed44a050a77f8b424f6586a94c17390a1cb7f"
+    },
+    {
+      "schema": "geography",
+      "table": "election_reporting_unit",
+      "path": "data/stage14_6/tables/geography/election_reporting_unit.parquet",
+      "row_count": 9109,
+      "size_bytes": 604524,
+      "sha256": "9d1277c9adb19a20b9a3ccc7c2e2b9ef0e626825e92af3a9a3bd1f5ec026b032"
+    },
+    {
+      "schema": "geography",
+      "table": "reporting_unit",
+      "path": "data/stage14_6/tables/geography/reporting_unit.parquet",
+      "row_count": 9109,
+      "size_bytes": 228417,
+      "sha256": "2232092400b48678bbc5515a724847eaa3bff8741a9399004fb81c07fd050703"
+    },
+    {
+      "schema": "geography",
+      "table": "reporting_unit_parent",
+      "path": "data/stage14_6/tables/geography/reporting_unit_parent.parquet",
+      "row_count": 0,
+      "size_bytes": 248,
+      "sha256": "3c4feaa11326c1ffb763a4f9f8f825aa06d041f82bcfd0be2808f2a71d84967c"
+    },
+    {
+      "schema": "provenance",
+      "table": "import_run",
+      "path": "data/stage14_6/tables/provenance/import_run.parquet",
+      "row_count": 1,
+      "size_bytes": 2665,
+      "sha256": "46ccc09e010b388e7f1cb7adb31ccad1419396ed75e6ff0660ccd47d68b99864"
+    },
+    {
+      "schema": "provenance",
+      "table": "import_run_input",
+      "path": "data/stage14_6/tables/provenance/import_run_input.parquet",
+      "row_count": 47,
+      "size_bytes": 3192,
+      "sha256": "b6828f5a2df70c3d0795723f96c53ea4aee263fe17c98eef08c03b3c9c7138d8"
+    },
+    {
+      "schema": "provenance",
+      "table": "row_lineage",
+      "path": "data/stage14_6/tables/provenance/row_lineage.parquet",
+      "row_count": 315232,
+      "size_bytes": 18925325,
+      "sha256": "87107710b2aa147bdfcce015d4eba5383e5a8fb1cb5c121f2fa54063d4e50d5e"
+    },
+    {
+      "schema": "provenance",
+      "table": "source_file",
+      "path": "data/stage14_6/tables/provenance/source_file.parquet",
+      "row_count": 47,
+      "size_bytes": 3955,
+      "sha256": "bf73aed04c5f064560e70eb30fa767755f4fdb5dfde3e3d981ee61ca1e037d11"
+    },
+    {
+      "schema": "provenance",
+      "table": "source_file_revision",
+      "path": "data/stage14_6/tables/provenance/source_file_revision.parquet",
+      "row_count": 47,
+      "size_bytes": 11614,
+      "sha256": "d247158858f8ec827c44314a9bd178f981cd78ad3831bce9b702eab111285704"
+    },
+    {
+      "schema": "provenance",
+      "table": "source_landing_page",
+      "path": "data/stage14_6/tables/provenance/source_landing_page.parquet",
+      "row_count": 2,
+      "size_bytes": 2601,
+      "sha256": "26f54d91b54db43a232d81fb5b6ba6bf6c77141461c1a749d5eed4117f70c00c"
+    },
+    {
+      "schema": "provenance",
+      "table": "transform_run",
+      "path": "data/stage14_6/tables/provenance/transform_run.parquet",
+      "row_count": 19,
+      "size_bytes": 2843,
+      "sha256": "400ba2a6aa815cc81a26a4e81e69b900a7867687d0fc45db1e41b9d14209c8b8"
+    },
+    {
+      "schema": "staging",
+      "table": "source_record",
+      "path": "data/stage14_6/tables/staging/source_record.parquet",
+      "row_count": 213163,
+      "size_bytes": 15387731,
+      "sha256": "13dc6d512ba973fb9aaa314fecd6441a6db9f57de5264082e5684e0fbc78f526"
+    },
+    {
+      "schema": "results",
+      "table": "contest_outcome",
+      "path": "data/stage14_6/tables/results/contest_outcome.parquet",
+      "row_count": 190,
+      "size_bytes": 9153,
+      "sha256": "17a757c762c57b0131666086d0dad08babf95559c7d5d5371fe5ec1f1a147f1d"
+    },
+    {
+      "schema": "results",
+      "table": "elected_member",
+      "path": "data/stage14_6/tables/results/elected_member.parquet",
+      "row_count": 190,
+      "size_bytes": 12132,
+      "sha256": "154deae4e436214d80026557fa7452d22f6e9236057eb0276202fbe023c7e574"
+    },
+    {
+      "schema": "results",
+      "table": "participation_result",
+      "path": "data/stage14_6/tables/results/participation_result.parquet",
+      "row_count": 1896,
+      "size_bytes": 45344,
+      "sha256": "cd10b5acaa8e66d4936b23a9a35acef4e911ee4831a2f6cccfaf5ddbf2ea41f7"
+    },
+    {
+      "schema": "results",
+      "table": "vote_result",
+      "path": "data/stage14_6/tables/results/vote_result.parquet",
+      "row_count": 205788,
+      "size_bytes": 4184418,
+      "sha256": "9067de5ca419d89c9b256f3c9c90869a133128a2d0bb99940baa6671841da63a"
+    },
+    {
+      "schema": "count",
+      "table": "count_candidate_total",
+      "path": "data/stage14_6/tables/count/count_candidate_total.parquet",
+      "row_count": 74400,
+      "size_bytes": 1496069,
+      "sha256": "3a124c0e5bbedd6c274ac99b664323df44a7ac972ff33ba04ae85555afcb454b"
+    },
+    {
+      "schema": "count",
+      "table": "count_round",
+      "path": "data/stage14_6/tables/count/count_round.parquet",
+      "row_count": 1875,
+      "size_bytes": 46183,
+      "sha256": "4353645994e77ac54607941114575accedf6fac51ca08d4dd4443529c77cf43b"
+    },
+    {
+      "schema": "count",
+      "table": "preference_transfer",
+      "path": "data/stage14_6/tables/count/preference_transfer.parquet",
+      "row_count": 9239,
+      "size_bytes": 276012,
+      "sha256": "459a8f6d873b6165f4c9b262993957a01f42e9444dfbe67472040844ec2338ea"
+    },
+    {
+      "schema": "ballot",
+      "table": "ballot_dataset",
+      "path": "data/stage14_6/tables/ballot/ballot_dataset.parquet",
+      "row_count": 8,
+      "size_bytes": 4651,
+      "sha256": "2705d660a1891f1bfc5dda8955714f756d59b2a18e747da4edc751423302b983"
+    },
+    {
+      "schema": "ballot",
+      "table": "group_voting_ticket",
+      "path": "data/stage14_6/tables/ballot/group_voting_ticket.parquet",
+      "row_count": 156,
+      "size_bytes": 7791,
+      "sha256": "921912ca017d862e351654c18a9c140d75749077ea376ca05be7206fbdc47d8d"
+    },
+    {
+      "schema": "ballot",
+      "table": "group_voting_ticket_preference",
+      "path": "data/stage14_6/tables/ballot/group_voting_ticket_preference.parquet",
+      "row_count": 9048,
+      "size_bytes": 183360,
+      "sha256": "a40960cadfdc54513ec2ae998fb8574bfeae1638065fa2d36fc87c24259af133"
+    },
+    {
+      "schema": "audit",
+      "table": "validation_issue",
+      "path": "data/stage14_6/tables/audit/validation_issue.parquet",
+      "row_count": 51,
+      "size_bytes": 6005,
+      "sha256": "06d64a61ecf912ef19ed6e20b72258908f4623f75e351e1bea01e10a083431eb"
+    },
+    {
+      "schema": "audit",
+      "table": "validation_rule",
+      "path": "data/stage14_6/tables/audit/validation_rule.parquet",
+      "row_count": 78,
+      "size_bytes": 5701,
+      "sha256": "28fcc2da5aca16f2c0dc91352391d597f65a7dab803e5ac4fea019ffe179c176"
+    },
+    {
+      "schema": "audit",
+      "table": "validation_run",
+      "path": "data/stage14_6/tables/audit/validation_run.parquet",
+      "row_count": 1,
+      "size_bytes": 1925,
+      "sha256": "740d0849d53df7b02ee0175642972bdf7b3159548b65f2c76a60299048ff9996"
+    },
+    {
+      "schema": "derived",
+      "table": "contest_summary",
+      "path": "data/stage14_6/tables/derived/contest_summary.parquet",
+      "row_count": 158,
+      "size_bytes": 15325,
+      "sha256": "4f00c05e0c6da8186a9e715d3e46c0a750354c12416581fc9e469a98fb0e248f"
+    },
+    {
+      "schema": "derived",
+      "table": "party_summary",
+      "path": "data/stage14_6/tables/derived/party_summary.parquet",
+      "row_count": 17,
+      "size_bytes": 3634,
+      "sha256": "62ad365dd3eb0a88c7d814ad316a477f2f9f30a9f84d2baf5271d7acb9749cf1"
+    },
+    {
+      "schema": "derived",
+      "table": "preference_flow",
+      "path": "data/stage14_6/tables/derived/preference_flow.parquet",
+      "row_count": 0,
+      "size_bytes": 453,
+      "sha256": "4d96472ed10a1b7abff4e25bf09f59af978c9ac45b322339a41f128d10422eb8"
+    },
+    {
+      "schema": "publish",
+      "table": "publication_snapshot",
+      "path": "data/stage14_6/tables/publish/publication_snapshot.parquet",
+      "row_count": 1,
+      "size_bytes": 2847,
+      "sha256": "5632b353cebbdeb5a73104a4c75000b79d6c81433d211562f5cd367d22fb332c"
+    },
+    {
+      "schema": "publish",
+      "table": "publication_snapshot_source_revision",
+      "path": "data/stage14_6/tables/publish/publication_snapshot_source_revision.parquet",
+      "row_count": 47,
+      "size_bytes": 2731,
+      "sha256": "f2155c5855a33ec5b0a05d1299c7d6a866f914919c7a721bab7ee406319def27"
+    }
+  ],
+  "manifest_sha256": "5edcfeae7df357ba41d42e5bee0785b981fcc42794f5c2e253c508c80682d65d"
+}

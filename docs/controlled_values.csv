@@ -1,0 +1,120 @@
+value_set_name,value_code,display_name,description,sort_order,valid_from,valid_to,active
+contest_status,scheduled,Scheduled,Contest scheduled,1,,,True
+contest_status,nominations_closed,Nominations Closed,Nominations closed,2,,,True
+contest_status,counting,Counting,Count in progress,3,,,True
+contest_status,declared,Declared,Result declared,4,,,True
+contest_status,void,Void,Contest legally void,5,,,True
+contest_status,cancelled,Cancelled,Contest cancelled,6,,,True
+contest_status,superseded,Superseded,Contest record superseded,7,,,True
+count_action_type,first_preferences,First Preferences,Initial first-preference count,1,,,True
+count_action_type,surplus_distribution,Surplus Distribution,Distribution of an elected candidate surplus,2,,,True
+count_action_type,exclusion,Exclusion,Exclusion of one candidate,3,,,True
+count_action_type,bulk_exclusion,Bulk Exclusion,Exclusion of multiple candidates,4,,,True
+count_action_type,transfer,Transfer,Other official transfer,5,,,True
+count_action_type,recount,Recount,Recount step,6,,,True
+count_action_type,tie_resolution,Tie Resolution,Official tie resolution,7,,,True
+count_action_type,completion,Completion,Count completion,8,,,True
+match_status,matched,Matched,Canonical identity verified,1,,,True
+match_status,provisional_match,Provisional Match,Likely match awaiting verification,2,,,True
+match_status,unmatched,Unmatched,No canonical identity located,3,,,True
+match_status,conflict,Conflict,More than one plausible identity,4,,,True
+match_status,not_applicable,Not Applicable,Canonical matching does not apply,5,,,True
+null_reason,not_applicable,Not Applicable,Field does not apply,1,,,True
+null_reason,not_published,Not Published,Source did not publish the field,2,,,True
+null_reason,unknown,Unknown,Value is genuinely unknown,3,,,True
+null_reason,unavailable,Unavailable,Value cannot currently be obtained,4,,,True
+null_reason,suppressed,Suppressed,Value suppressed by the authority,5,,,True
+null_reason,not_yet_final,Not Yet Final,Awaiting finalisation,6,,,True
+null_reason,source_error,Source Error,Source is defective,7,,,True
+null_reason,not_parsed,Not Parsed,Source content has not been parsed,8,,,True
+officiality,official,Official,Direct official data,1,,,True
+officiality,official_derived,Official Derived,Derived and published by an authority,2,,,True
+officiality,politica_derived,Politica Derived,Derived by Politica,3,,,True
+officiality,third_party,Third Party,Non-authority data,4,,,True
+outcome_type,elected,Elected,Elected,1,,,True
+outcome_type,elected_over_quota,Elected Over Quota,Elected after reaching quota,2,,,True
+outcome_type,elected_under_quota,Elected Under Quota,Elected without reaching quota,3,,,True
+outcome_type,elected_unopposed,Elected Unopposed,Elected without a contested poll,4,,,True
+outcome_type,excluded,Excluded,Excluded during the count,5,,,True
+outcome_type,withdrawn,Withdrawn,Candidacy withdrawn,6,,,True
+outcome_type,deceased,Deceased,Candidate deceased,7,,,True
+outcome_type,not_elected,Not Elected,Not elected,8,,,True
+participation_measure,enrolment,Enrolment,Enrolled electors,1,,,True
+participation_measure,formal_votes,Formal Votes,Formal votes,2,,,True
+participation_measure,informal_votes,Informal Votes,Informal votes,3,,,True
+participation_measure,total_votes,Total Votes,Total votes admitted,4,,,True
+participation_measure,turnout,Turnout,Turnout count,5,,,True
+participation_measure,turnout_percentage,Turnout Percentage,Turnout percentage,6,,,True
+participation_measure,informality_percentage,Informality Percentage,Informality percentage,7,,,True
+participation_measure,ballots_issued,Ballots Issued,Ballots issued,8,,,True
+participation_measure,ballots_received,Ballots Received,Ballots received,9,,,True
+publication_status,unpublished,Unpublished,Not publicly released,1,,,True
+publication_status,progressive,Progressive,Progressive election-night or count update,2,,,True
+publication_status,provisional,Provisional,Provisional official result,3,,,True
+publication_status,final,Final,Final official result,4,,,True
+publication_status,amended,Amended,Corrected official publication,5,,,True
+publication_status,superseded,Superseded,Replaced publication,6,,,True
+record_status,active,Active,Active record,1,,,True
+record_status,quarantined,Quarantined,Held from authoritative use,2,,,True
+record_status,superseded,Superseded,Replaced by a later record,3,,,True
+record_status,withdrawn,Withdrawn,Withdrawn by the authority or Politica governance,4,,,True
+record_status,deleted_at_source,Deleted At Source,No longer present at the source,5,,,True
+reporting_unit_type,polling_place,Polling Place,Election-day polling place,1,,,True
+reporting_unit_type,vote_centre,Vote Centre,General vote centre,2,,,True
+reporting_unit_type,early_centre,Early Centre,Early voting centre,3,,,True
+reporting_unit_type,remote_team,Remote Team,Remote polling team,4,,,True
+reporting_unit_type,mobile_team,Mobile Team,Mobile polling team,5,,,True
+reporting_unit_type,declaration_category,Declaration Category,Aggregate declaration category,6,,,True
+reporting_unit_type,district_total,District Total,District or constituency total,7,,,True
+reporting_unit_type,region_total,Region Total,Region total,8,,,True
+reporting_unit_type,state_total,State Total,State or territory total,9,,,True
+reporting_unit_type,national_total,National Total,National aggregate total,10,,,True
+result_measure,votes,Votes,Vote count,1,,,True
+result_measure,vote_share,Vote Share,Percentage share,2,,,True
+result_measure,swing,Swing,Percentage-point movement,3,,,True
+result_measure,papers,Papers,Ballot-paper count,4,,,True
+result_measure,transfer_value,Transfer Value,Transfer value,5,,,True
+result_measure,margin_votes,Margin Votes,Margin in votes,6,,,True
+result_measure,margin_percentage,Margin Percentage,Margin in percentage points,7,,,True
+result_type,first_preference,First Preference,First-preference result,1,,,True
+result_type,primary,Primary,Primary vote result,2,,,True
+result_type,tcp,Tcp,Two-candidate-preferred result,3,,,True
+result_type,tpp,Tpp,Two-party-preferred result,4,,,True
+result_type,final_two_candidate,Final Two Candidate,Final-two-candidate result,5,,,True
+result_type,final_two_party,Final Two Party,Final-two-party result,6,,,True
+result_type,preference_transfer,Preference Transfer,Preference transfer,7,,,True
+result_type,group_total,Group Total,Ballot-group total,8,,,True
+result_type,party_total,Party Total,Party total,9,,,True
+result_type,contest_total,Contest Total,Contest total,10,,,True
+result_type,ticket_vote,Ticket Vote,Above-the-line group voting ticket vote,11,,,True
+result_type,non_ticket_vote,Non Ticket Vote,Formal vote cast without using a group voting ticket,12,,,True
+subject_type,candidacy,Candidacy,Candidate in a contest,1,,,True
+subject_type,ballot_group,Ballot Group,Ballot group,2,,,True
+subject_type,party,Party,Canonical party,3,,,True
+subject_type,question_option,Question Option,Referendum or plebiscite option,4,,,True
+subject_type,contest,Contest,Entire contest,5,,,True
+subject_type,source_group,Source Group,Authority-defined aggregate group retained without an inferred canonical-party mapping,6,,,True
+value_basis,official_reported,Official Reported,Value directly published by an authority,1,,,True
+value_basis,official_calculated,Official Calculated,Value calculated and published by an authority,2,,,True
+value_basis,politica_calculated,Politica Calculated,Reproducible Politica calculation,3,,,True
+value_basis,transcribed,Transcribed,Manually transcribed official value,4,,,True
+value_basis,imputed,Imputed,Modelled or inferred value,5,,,True
+value_status,reported,Reported,A value was published,1,,,True
+value_status,not_applicable,Not Applicable,Measure does not apply,2,,,True
+value_status,not_published,Not Published,Authority did not publish the measure,3,,,True
+value_status,not_collected,Not Collected,Authority did not collect the measure,4,,,True
+value_status,suppressed,Suppressed,Authority suppressed the value,5,,,True
+value_status,pending,Pending,Awaiting a later official publication,6,,,True
+value_status,parse_error,Parse Error,Source value could not be parsed,7,,,True
+vote_type,ordinary,Ordinary,Ordinary or election-day vote,1,,,True
+vote_type,absent,Absent,Absent vote,2,,,True
+vote_type,postal,Postal,Postal vote,3,,,True
+vote_type,early,Early,Early or pre-poll vote,4,,,True
+vote_type,provisional,Provisional,Provisional vote,5,,,True
+vote_type,declaration,Declaration,Declaration vote,6,,,True
+vote_type,mobile,Mobile,Mobile polling vote,7,,,True
+vote_type,telephone,Telephone,Telephone-assisted vote,8,,,True
+vote_type,interstate,Interstate,Interstate vote,9,,,True
+vote_type,overseas,Overseas,Overseas vote,10,,,True
+vote_type,total,Total,Aggregate total,11,,,True
+vote_type,authority_specific,Authority Specific,Authority-specific class retained with source label,12,,,True

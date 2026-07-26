@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-25T12:30:00+10:00",
+  "updated_at": "2026-07-26T22:10:00+10:00",
   "repository": {
     "full_name": "henryjbeckenham/politica-election-results",
     "default_branch": "main",
@@ -10,14 +10,18 @@
     "provider": "google_drive",
     "root_folder_id": "14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
     "root_url": "https://drive.google.com/drive/folders/14NBzsGjVryTYE4r7fOE1gGbraT_cg2L5",
-    "status": "configured_partial"
+    "status": "configured"
   },
   "baseline_admission": {
-    "status": "pending_verification",
-    "repository_source_version": null,
+    "status": "source_published_release_verification_pending",
+    "repository_source_version": "1.8.0",
     "accepted_commit": null,
     "accepted_release_id": null,
-    "accepted_database_sha256": null
+    "accepted_database_sha256": null,
+    "packaged_clean_integration_release_id": "release_1_8_0_2010_6396e7b7fa807851",
+    "packaged_clean_integration_database_sha256": "69779c47c1480eedbfe0a9ae844ff8037283e0e314377d11058706a3b4e7b752",
+    "installed_active_pointer_release_id": "release_1_8_0_2010_33214168bb0d50da",
+    "installed_active_pointer_database_sha256": "1b0524a99c6a0ad39ada424ff45dbc460bdbda65da62b1889855a8042502ac70"
   },
   "governed_target": {
     "stage": "14.6",
@@ -30,31 +34,30 @@
       2013,
       2010
     ],
-    "evidence_status": "not_yet_reproduced_in_repository"
+    "evidence_status": "source_and_packaged_validation_reproduced"
   },
   "latest_reproduced_package_evidence": {
-    "stage": "14.4",
-    "application_version": "1.6.0",
+    "stage": "14.6",
+    "application_version": "1.8.0",
     "election_years": [
       2025,
       2022,
       2019,
-      2016
+      2016,
+      2013,
+      2010
     ],
-    "outer_package_sha256": "b79eb699fbed958857fe3f812c494a32f0e9ff1ba2623eecb0150ba448840e03",
-    "cumulative_update_sha256": "94258961e16e090fbef35001c832039bceed8c153d24ccdaf294ef6a78ec430d",
+    "outer_package_sha256": "8f377aae8fb384787e59706be86d95b8de0db072f4697053f0f3319384c08f7e",
+    "cumulative_update_sha256": "ba387c5840e57d20b7de4556258e055b33a217c040f5c8cb5c4777b64b7d90f7",
     "packaged_test_status": "PASS",
     "packaged_integration_status": "PASS"
   },
   "blocked_operations": [
-    "claiming the repository is the accepted v1.8.0 source",
     "tagging or releasing v1.8.0",
     "commencing post-Stage 14.6 database development"
   ],
   "required_inputs": [
-    "Politica_Stage14_6_v1.8.0_Update.zip",
-    "Stage 14.6 active.json",
-    "Stage 14.6 build, test, integration and validation reports",
-    "the current database and Parquet artifacts, with verified checksums"
+    "a connector-readable export of the installed release, split into parts smaller than 100 MiB",
+    "read-only verification of the installed release manifest, DuckDB database and Parquet dependencies"
   ]
 }

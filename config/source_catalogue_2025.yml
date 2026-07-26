@@ -1,0 +1,61 @@
+event_id: "31496"
+election_id: election_fed_2025_05_03_general
+authority_id: authority_aec
+phase: FinalResults
+landing_pages:
+  house: https://results.aec.gov.au/31496/Website/HouseDownloadsMenu-31496-Csv.htm
+  senate: https://results.aec.gov.au/31496/Website/SenateDownloadsMenu-31496-Csv.htm
+base_download_url: https://results.aec.gov.au/31496/Website/Downloads
+raw_directory: data/raw/aec/2025_federal/31496/final
+
+sources:
+  - {key: house_candidates, file: HouseCandidatesDownload-31496.csv, chamber: house, family: candidates}
+  - {key: house_elected, file: HouseMembersElectedDownload-31496.csv, chamber: house, family: outcomes}
+  - {key: house_fp_vote_type, file: HouseFirstPrefsByCandidateByVoteTypeDownload-31496.csv, chamber: house, family: first_preferences}
+  - {key: house_fp_polling_nsw, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-NSW.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_vic, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-VIC.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_qld, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-QLD.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_wa, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-WA.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_sa, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-SA.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_tas, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-TAS.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_act, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-ACT.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_fp_polling_nt, file: HouseStateFirstPrefsByPollingPlaceDownload-31496-NT.csv, chamber: house, family: first_preferences_polling_place}
+  - {key: house_tcp_vote_type, file: HouseTcpByCandidateByVoteTypeDownload-31496.csv, chamber: house, family: two_candidate_preferred}
+  - {key: house_tcp_polling, file: HouseTcpByCandidateByPollingPlaceDownload-31496.csv, chamber: house, family: two_candidate_preferred_polling_place}
+  - {key: house_tpp_state, file: HouseTppByStateDownload-31496.csv, chamber: house, family: two_party_preferred_state}
+  - {key: house_tpp_division, file: HouseTppByDivisionDownload-31496.csv, chamber: house, family: two_party_preferred_division}
+  - {key: house_tpp_division_vote_type, file: HouseTppByDivisionByVoteTypeDownload-31496.csv, chamber: house, family: two_party_preferred}
+  - {key: house_tpp_polling, file: HouseTppByPollingPlaceDownload-31496.csv, chamber: house, family: two_party_preferred_polling_place}
+  - {key: house_distribution, file: HouseDopByDivisionDownload-31496.csv, chamber: house, family: distribution_of_preferences}
+  - {key: enrolment_division, file: GeneralEnrolmentByDivisionDownload-31496.csv, chamber: both, family: enrolment}
+  - {key: house_informal_division, file: HouseInformalByDivisionDownload-31496.csv, chamber: house, family: participation}
+  - {key: house_turnout_division, file: HouseTurnoutByDivisionDownload-31496.csv, chamber: house, family: participation}
+  - {key: house_votes_division, file: HouseVotesCountedByDivisionDownload-31496.csv, chamber: house, family: participation}
+  - {key: polling_places, file: GeneralPollingPlacesDownload-31496.csv, chamber: both, family: reporting_units}
+  - {key: senate_candidates, file: SenateCandidatesDownload-31496.csv, chamber: senate, family: candidates}
+  - {key: senate_elected, file: SenateSenatorsElectedDownload-31496.csv, chamber: senate, family: outcomes}
+  - {key: senate_fp_state_vote_type, file: SenateFirstPrefsByStateByVoteTypeDownload-31496.csv, chamber: senate, family: first_preferences}
+  - {key: senate_fp_division_vote_type, file: SenateFirstPrefsByDivisionByVoteTypeDownload-31496.csv, chamber: senate, family: first_preferences_division}
+  - {key: senate_fp_group_vote_type, file: SenateFirstPrefsByGroupByVoteTypeDownload-31496.csv, chamber: senate, family: first_preferences_group}
+  - {key: senate_fp_state_group_vote_type, file: SenateFirstPrefsByStateByGroupByVoteTypeDownload-31496.csv, chamber: senate, family: first_preferences_group}
+  - {key: enrolment_state, file: GeneralEnrolmentByStateDownload-31496.csv, chamber: both, family: enrolment}
+  - {key: senate_informal_state, file: SenateInformalByStateDownload-31496.csv, chamber: senate, family: participation}
+  - {key: senate_turnout_state, file: SenateTurnoutByStateDownload-31496.csv, chamber: senate, family: participation}
+  - {key: senate_votes_state, file: SenateVotesCountedByStateDownload-31496.csv, chamber: senate, family: participation}
+  - {key: senate_informal_division, file: SenateInformalByDivisionDownload-31496.csv, chamber: senate, family: participation_division}
+  - {key: senate_turnout_division, file: SenateTurnoutByDivisionDownload-31496.csv, chamber: senate, family: participation_division}
+  - {key: senate_votes_division, file: SenateVotesCountedByDivisionDownload-31496.csv, chamber: senate, family: participation_division}
+  - key: senate_distribution
+    file: SenateDopDownload-31496.zip
+    url: https://results.aec.gov.au/31496/Website/External/SenateDopDownload-31496.zip
+    chamber: senate
+    family: distribution_of_preferences
+    compression: zip
+  - {key: senate_formal_preferences_nsw, file: aec-senate-formalpreferences-31496-NSW.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-NSW.zip, chamber: senate, family: formal_preferences, compression: zip, state: NSW}
+  - {key: senate_formal_preferences_vic, file: aec-senate-formalpreferences-31496-VIC.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-VIC.zip, chamber: senate, family: formal_preferences, compression: zip, state: VIC}
+  - {key: senate_formal_preferences_qld, file: aec-senate-formalpreferences-31496-QLD.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-QLD.zip, chamber: senate, family: formal_preferences, compression: zip, state: QLD}
+  - {key: senate_formal_preferences_wa, file: aec-senate-formalpreferences-31496-WA.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-WA.zip, chamber: senate, family: formal_preferences, compression: zip, state: WA}
+  - {key: senate_formal_preferences_sa, file: aec-senate-formalpreferences-31496-SA.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-SA.zip, chamber: senate, family: formal_preferences, compression: zip, state: SA}
+  - {key: senate_formal_preferences_tas, file: aec-senate-formalpreferences-31496-TAS.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-TAS.zip, chamber: senate, family: formal_preferences, compression: zip, state: TAS}
+  - {key: senate_formal_preferences_act, file: aec-senate-formalpreferences-31496-ACT.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-ACT.zip, chamber: senate, family: formal_preferences, compression: zip, state: ACT}
+  - {key: senate_formal_preferences_nt, file: aec-senate-formalpreferences-31496-NT.zip, url: https://results.aec.gov.au/31496/Website/External/aec-senate-formalpreferences-31496-NT.zip, chamber: senate, family: formal_preferences, compression: zip, state: NT}

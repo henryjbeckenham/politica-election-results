@@ -10,7 +10,7 @@
 
 Read `CURRENT_STATE.json`. Do not infer the current release from a filename, conversation or historical package.
 
-The intended continuation point is Stage 14.6, application 1.8.0, with federal election coverage for 2025, 2022, 2019, 2016, 2013 and 2010. The repository must not claim that release as accepted until the admission checks in `docs/BASELINE_MIGRATION.md` pass.
+The repository source is Stage 14.6, application 1.8.0. Its packaged clean-integration evidence covers the federal elections of 2025, 2022, 2019, 2016, 2013 and 2010. The installed release remains pending final read-only verification under `governance/BASELINE_MIGRATION.md`.
 
 ## Startup procedure
 

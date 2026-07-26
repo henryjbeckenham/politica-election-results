@@ -1,0 +1,47 @@
+contract_version: 1.0.0
+boundary_id: aec_federal_electoral_boundaries_2025_03_04
+title: Australian federal electoral boundaries used at the 2025 federal election
+coverage: Australia
+feature_count: 150
+election_id: election_fed_2025_05_03_general
+effective_as_at: 2025-03-04
+coordinate_reference_system:
+  name: GDA94
+  epsg: 4283
+
+source:
+  publisher: Australian Electoral Commission
+  landing_page_url: https://www.aec.gov.au/Electorates/gis/gis_datadownload.htm
+  download_url: https://www.aec.gov.au/Electorates/files/2025/AUS-March-2025-esri.zip
+  source_archive_path: config/boundaries/source/AUS-March-2025-esri.zip
+  source_archive_size_bytes: 22689664
+  source_archive_sha256: bdc0393d8448477bf187ac84473978330f776b5ea2ed6343f7eb891187263a09
+  source_page_updated: 2025-03-04
+  source_page_election_label: 2025
+  source_components:
+    AUS_ELB_region.shp: 57bbf38dbf8e1caa7360af43fb2154f5827ac12aee5a4927c04a497a31b1987b
+    AUS_ELB_region.shx: 0b6187d15d6ea7f6fb937159d5cc43e43dacd2e45c6a2af1ba6bfe347d06bbd1
+    AUS_ELB_region.dbf: cc36b63b0937b5b97ddcf6b6000015edf6fa558a718fcef568aab9e8c49cb9b7
+    AUS_ELB_region.prj: e6e1cc4c5a68009271bab9d22f2f99c861944e577a1e385d8f6b0636a5d8a3fa
+
+derived_geometry:
+  format: GeoJSON
+  geometry_types: [Polygon, MultiPolygon]
+  feature_name_property: electorate
+  division_number_property: division_number
+  area_property: area_sq_km
+  source_path: config/boundaries/derived/house_electorates_2025.geojson
+  public_asset_path: boundaries/house_electorates_2025.geojson
+  size_bytes: 2940694
+  sha256: 8753f2e7527754b4e894b28fe834b86d6812b3513b58c6d05b6e2ac93f540990
+  transformation: Topology-preserving weighted simplification to six per cent of source vertices; coordinates rounded to four decimal places; no feature removed.
+
+attribution:
+  copyright: © Commonwealth of Australia (Australian Electoral Commission)
+  notice: This product (Politica Election Results) incorporates Australian Electoral Commission federal electoral boundary data. The AEC has not evaluated the data as simplified and incorporated into Politica and gives no warranty regarding its accuracy, completeness, currency or suitability for any particular purpose.
+  licence_url: https://www.aec.gov.au/Electorates/gis/GIS_Data_Download_Data_Licence.htm
+
+governance:
+  read_only: true
+  canonical_database_mutation: false
+  replacement_rule: A later boundary dataset requires a new contract version, source checksum and derived-geometry checksum; existing website releases remain immutable.
