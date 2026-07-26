@@ -15,6 +15,7 @@
   "baseline_admission": {
     "status": "source_published_release_verification_pending",
     "repository_source_version": "1.8.0",
+    "repository_source_commit": "c072adfc5c98be850a22b766e8ab4cf6dddc5406",
     "accepted_commit": null,
     "accepted_release_id": null,
     "accepted_database_sha256": null,
