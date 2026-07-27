@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/stage14-7d-build
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
