@@ -21,10 +21,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Download governed DuckDB wheel
+      - name: Download governed build wheels
         run: |
           mkdir -p bootstrap
-          python -m pip download --only-binary=:all: --no-deps duckdb==1.4.1 -d bootstrap
+          python -m pip download --only-binary=:all: --no-deps duckdb==1.4.1 pyarrow numpy -d bootstrap
           sha256sum bootstrap/* > bootstrap/SHA256SUMS.txt
       - name: Upload bootstrap dependencies
         uses: actions/upload-artifact@v4
