@@ -223,7 +223,7 @@ jobs:
                   {"source_label": "text_applies", "source_path": "$.value[*]", "target": "bls_legislation.text_applies_determinations", "support": "mapped"},
                   {"source_label": "title_all_expanded", "source_path": "$.hasCommencedUnincorporatedAmendments", "target": "bls_legislation.commencement_events", "support": "signal_only_no_event_inference"}
               ],
-              "field_provenance_required": true,
+              "field_provenance_required": True,
               "field_provenance_target": "bls_audit.field_provenance",
               "raw_evidence_target": "bls_source.raw_captures + bls_source.record_evidence"
           }
