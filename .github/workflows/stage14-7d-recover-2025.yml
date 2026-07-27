@@ -1,0 +1,64 @@
+name: Stage 14.7D recover 2025 predecessor sources
+
+on:
+  push:
+    branches:
+      - agent/stage14-7d-build
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install bounded dependencies
+        run: python -m pip install duckdb==1.4.1 PyYAML
+      - name: Recover and checksum official 2025 sources
+        env:
+          PYTHONPATH: src
+        run: python -m politica_erd.download_sources --force
+      - name: Upload 2025 ordinary sources and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-2025-ordinary-sources
+          path: |
+            data/manifests/aec_2025_sources.json
+            data/raw/aec/2025_federal/31496/final/*.csv
+            data/raw/aec/2025_federal/31496/final/SenateDopDownload-31496.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload 2025 NSW and Victorian formal preferences
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-2025-formal-preferences-nsw-vic
+          path: |
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-NSW.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-VIC.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload remaining 2025 formal preferences
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-2025-formal-preferences-other
+          path: |
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-QLD.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-WA.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-SA.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-TAS.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-ACT.zip
+            data/raw/aec/2025_federal/31496/final/aec-senate-formalpreferences-31496-NT.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
