@@ -1,0 +1,33 @@
+name: Stage 14.7D bootstrap dependencies
+
+on:
+  push:
+    branches:
+      - agent/stage14-7d-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download governed DuckDB wheel
+        run: |
+          mkdir -p bootstrap
+          python -m pip download --only-binary=:all: --no-deps duckdb==1.4.1 -d bootstrap
+          sha256sum bootstrap/* > bootstrap/SHA256SUMS.txt
+      - name: Upload bootstrap dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-bootstrap
+          path: bootstrap
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
