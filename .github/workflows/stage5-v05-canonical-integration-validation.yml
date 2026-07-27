@@ -1,0 +1,104 @@
+name: Stage 5 v0.5 canonical integration PostgreSQL validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-canonical-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      EVIDENCE: validation/stage5_v05_canonical_integration/evidence
+      SOURCE: validation/stage5_v05_canonical_integration/source
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Reconstruct and verify governed SQL inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs"
+          for file in "$SOURCE"/*.gz.b64; do
+            output="$EVIDENCE/sql/$(basename "${file%.gz.b64}")"
+            base64 -d "$file" | gzip -d > "$output"
+          done
+          sha256sum "$EVIDENCE/sql/stage3_full_domain_v0_10b.sql" | tee "$EVIDENCE/schema.sha256"
+          sha256sum "$EVIDENCE/sql/stage5_canonical_live_fixture.sql" | tee "$EVIDENCE/fixture.sha256"
+          sha256sum "$EVIDENCE/sql/stage5_canonical_live_assertions.sql" | tee "$EVIDENCE/assertions.sha256"
+          grep -q '^daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc ' "$EVIDENCE/schema.sha256"
+          grep -q '^9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9 ' "$EVIDENCE/fixture.sha256"
+          grep -q '^ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd ' "$EVIDENCE/assertions.sha256"
+
+      - name: Execute exact PostgreSQL 18.4 validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          server_version_num="$(psql -Atc 'SHOW server_version_num')"
+          echo "$server_version_num" | tee "$EVIDENCE/server_version_num.txt"
+          test "$server_version_num" = "180004"
+          for sql in stage3_full_domain_v0_10b.sql stage5_canonical_live_fixture.sql stage5_canonical_live_assertions.sql; do
+            if psql -v ON_ERROR_STOP=1 -f "$EVIDENCE/sql/$sql" > "$EVIDENCE/logs/$sql.stdout.log" 2> "$EVIDENCE/logs/$sql.stderr.log"; then
+              echo 0 > "$EVIDENCE/logs/$sql.exit_code.txt"
+            else
+              code=$?
+              echo "$code" > "$EVIDENCE/logs/$sql.exit_code.txt"
+              cat "$EVIDENCE/logs/$sql.stderr.log" >&2
+              exit "$code"
+            fi
+          done
+          grep -q 'STAGE5_CANONICAL_LIVE_POSTGRES_PASS' "$EVIDENCE/logs/stage5_canonical_live_assertions.sql.stdout.log"
+          echo 'STAGE5_V0_5_CANONICAL_INTEGRATION_COMPLETED' | tee "$EVIDENCE/completion_marker.txt"
+
+      - name: Capture canonical snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -At -F $'\t' -c "SELECT 'legislation_titles', count(*) FROM bls_legislation.legislation_titles UNION ALL SELECT 'legislation_status_history', count(*) FROM bls_legislation.legislation_status_history UNION ALL SELECT 'legislation_versions', count(*) FROM bls_legislation.legislation_versions UNION ALL SELECT 'legislation_documents', count(*) FROM bls_legislation.legislation_documents UNION ALL SELECT 'departments', count(*) FROM bls_legislation.departments UNION ALL SELECT 'scrutiny_events', count(*) FROM bls_legislation.scrutiny_events UNION ALL SELECT 'field_provenance', count(*) FROM bls_audit.field_provenance UNION ALL SELECT 'record_evidence', count(*) FROM bls_source.record_evidence ORDER BY 1" > "$EVIDENCE/canonical_counts.tsv"
+          psql -At -F $'\t' -c "SELECT d.document_format_source_value, d.page_count, d.source_size_in_bytes, d.is_authorised FROM bls_legislation.legislation_documents d ORDER BY d.document_format_source_value" > "$EVIDENCE/document_snapshot.tsv"
+          psql -At -F $'\t' -c "SELECT s.source_status_value, lower(s.status_period), upper(s.status_period) FROM bls_legislation.legislation_status_history s ORDER BY lower(s.status_period)" > "$EVIDENCE/status_snapshot.tsv"
+
+      - name: Package evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v05_canonical_integration/final
+          (cd validation/stage5_v05_canonical_integration && zip -qr final/stage5-v05-canonical-integration-evidence.zip evidence)
+          sha256sum validation/stage5_v05_canonical_integration/final/stage5-v05-canonical-integration-evidence.zip > validation/stage5_v05_canonical_integration/final/stage5-v05-canonical-integration-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v05-canonical-integration-evidence
+          path: validation/stage5_v05_canonical_integration/final/
+          if-no-files-found: error
