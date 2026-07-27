@@ -1,0 +1,155 @@
+name: Stage 5 v0.5 canonical integration PostgreSQL validation v2
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      EVIDENCE: validation/stage5_v05_canonical_integration_v2/evidence
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_REF: agent/stage5-v0-5-canonical-integration-validation
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Reconstruct checksum-gated SQL
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs" "$EVIDENCE/source"
+          python - <<'PY'
+          import base64, gzip, hashlib, json, os, urllib.parse, urllib.request
+          from pathlib import Path
+
+          repo = 'henryjbeckenham/politica-election-results'
+          ref = os.environ['SOURCE_REF']
+          token = os.environ['GH_TOKEN']
+          evidence = Path(os.environ['EVIDENCE'])
+          source = evidence / 'source'
+          sql_dir = evidence / 'sql'
+          base_path = 'validation/stage5_v05_canonical_integration/source'
+
+          def fetch(path):
+              url = (
+                  f'https://api.github.com/repos/{repo}/contents/'
+                  f'{urllib.parse.quote(path, safe="/")}?ref={urllib.parse.quote(ref, safe="")}'
+              )
+              request = urllib.request.Request(url, headers={
+                  'Accept': 'application/vnd.github+json',
+                  'Authorization': f'Bearer {token}',
+                  'User-Agent': 'Politica-Stage5-v0.5-validation-v2/1.0',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              })
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  metadata = json.loads(response.read().decode())
+              return base64.b64decode(metadata['content']).decode('ascii').strip(), metadata
+
+          fragment_shas = [
+              '72baedd4b7b86a3a60916f407e7cccacd0c104c6',
+              'f349076fe34720ed018df2f5f23f49842d46ece4',
+              'de6234156add60507d5dcff1310ddc0f954630ad',
+              'e1edaee1b632efab767e68bf69eab7ea7bf6b8a8',
+              '6acbc90a05d5c44bcf3a929743325d57c301601c',
+          ]
+          parts = []
+          report = {'source_ref': ref, 'fragments': [], 'files': {}}
+          for index, expected_blob in enumerate(fragment_shas):
+              text, meta = fetch(f'{base_path}/stage3_fragments/stage3.{index}')
+              assert meta['sha'] == expected_blob, (index, meta['sha'])
+              assert len(text) == (3684 if index == 4 else 4000)
+              parts.append(text)
+              report['fragments'].append({'index': index, 'sha': meta['sha'], 'length': len(text)})
+          encoded = ''.join(parts)
+          assert len(encoded) == 19684
+          decoded = gzip.decompress(base64.b64decode(encoded, validate=True))
+          sha = hashlib.sha256(decoded).hexdigest()
+          assert sha == 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc'
+          (source / 'stage3_full_domain_v0_10b.sql.gz.b64').write_text(encoded)
+          (sql_dir / 'stage3_full_domain_v0_10b.sql').write_bytes(decoded)
+          report['files']['stage3_full_domain_v0_10b.sql'] = {'sha256': sha, 'bytes': len(decoded)}
+
+          for name, blob_sha, decoded_sha in [
+              ('stage5_canonical_live_fixture.sql', '0288286174b4b37f5595351382b4fd135f13b59b', '1800664bc68287a11c9b7b0bb2ccd15bb9cc85ade67d45e116644e03b18a50f1'),
+              ('stage5_canonical_live_assertions.sql', 'c3335e79f82bebf20de25dfaa9d5361cd36f9bec', 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd'),
+          ]:
+              encoded, meta = fetch(f'{base_path}/{name}.gz.b64')
+              assert meta['sha'] == blob_sha, (name, meta['sha'])
+              decoded = gzip.decompress(base64.b64decode(encoded, validate=True))
+              sha = hashlib.sha256(decoded).hexdigest()
+              assert sha == decoded_sha, (name, sha)
+              (source / f'{name}.gz.b64').write_text(encoded)
+              (sql_dir / name).write_bytes(decoded)
+              report['files'][name] = {'git_blob_sha': meta['sha'], 'sha256': sha, 'bytes': len(decoded)}
+          (evidence / 'input_reconstruction.json').write_text(json.dumps(report, indent=2, sort_keys=True))
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          sha256sum "$EVIDENCE/sql/"*.sql | sort > "$EVIDENCE/sql_sha256.txt"
+
+      - name: Execute exact PostgreSQL 18.4 integration
+        run: |
+          set -euo pipefail
+          psql -Atc 'SHOW server_version_num' | tee "$EVIDENCE/server_version_num.txt"
+          grep -qx '180004' "$EVIDENCE/server_version_num.txt"
+          for sql in stage3_full_domain_v0_10b.sql stage5_canonical_live_fixture.sql stage5_canonical_live_assertions.sql; do
+            if psql -v ON_ERROR_STOP=1 -f "$EVIDENCE/sql/$sql" > "$EVIDENCE/logs/$sql.stdout.log" 2> "$EVIDENCE/logs/$sql.stderr.log"; then
+              echo 0 > "$EVIDENCE/logs/$sql.exit_code.txt"
+            else
+              code=$?
+              echo "$code" > "$EVIDENCE/logs/$sql.exit_code.txt"
+              cat "$EVIDENCE/logs/$sql.stderr.log" >&2
+              exit "$code"
+            fi
+          done
+          grep -q 'STAGE5_CANONICAL_LIVE_POSTGRES_PASS' "$EVIDENCE/logs/stage5_canonical_live_assertions.sql.stdout.log"
+          echo STAGE5_V0_5_CANONICAL_INTEGRATION_COMPLETED | tee "$EVIDENCE/completion_marker.txt"
+
+      - name: Capture canonical snapshots
+        run: |
+          set -euo pipefail
+          psql -At -F $'\t' -c "SELECT 'departments',count(*) FROM bls_legislation.departments UNION ALL SELECT 'field_provenance',count(*) FROM bls_audit.field_provenance UNION ALL SELECT 'legislation_documents',count(*) FROM bls_legislation.legislation_documents UNION ALL SELECT 'legislation_status_history',count(*) FROM bls_legislation.legislation_status_history UNION ALL SELECT 'legislation_titles',count(*) FROM bls_legislation.legislation_titles UNION ALL SELECT 'legislation_versions',count(*) FROM bls_legislation.legislation_versions UNION ALL SELECT 'record_evidence',count(*) FROM bls_source.record_evidence UNION ALL SELECT 'scrutiny_events',count(*) FROM bls_legislation.scrutiny_events ORDER BY 1" > "$EVIDENCE/canonical_counts.tsv"
+          psql -At -F $'\t' -c "SELECT document_format_source_value,page_count,source_size_in_bytes,is_authorised FROM bls_legislation.legislation_documents ORDER BY document_format_source_value" > "$EVIDENCE/document_snapshot.tsv"
+          psql -At -F $'\t' -c "SELECT source_status_value,lower(status_period),upper(status_period) FROM bls_legislation.legislation_status_history ORDER BY lower(status_period)" > "$EVIDENCE/status_snapshot.tsv"
+          psql -At -F $'\t' -c "SELECT field_path,derivation_method_code,count(*) FROM bls_audit.field_provenance GROUP BY 1,2 ORDER BY 1,2" > "$EVIDENCE/provenance_snapshot.tsv"
+
+      - name: Package evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v05_canonical_integration_v2/final
+          (cd validation/stage5_v05_canonical_integration_v2 && zip -qr final/stage5-v05-canonical-integration-v2-evidence.zip evidence)
+          sha256sum validation/stage5_v05_canonical_integration_v2/final/stage5-v05-canonical-integration-v2-evidence.zip > validation/stage5_v05_canonical_integration_v2/final/stage5-v05-canonical-integration-v2-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v05-canonical-integration-v2-evidence
+          path: validation/stage5_v05_canonical_integration_v2/final/
+          if-no-files-found: error
