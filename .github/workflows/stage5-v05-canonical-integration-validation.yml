@@ -32,6 +32,7 @@ jobs:
       PGDATABASE: postgres
       EVIDENCE: validation/stage5_v05_canonical_integration/evidence
       GH_TOKEN: ${{ github.token }}
+      SOURCE_REF: agent/stage5-v0-5-canonical-integration-validation
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +56,8 @@ jobs:
           import hashlib
           import json
           import os
+          import traceback
+          import urllib.error
           import urllib.parse
           import urllib.request
 
@@ -63,58 +66,71 @@ jobs:
           source_target = evidence / 'source'
           token = os.environ['GH_TOKEN']
           repository = 'henryjbeckenham/politica-election-results'
-          specs = {
-              'stage3_full_domain_v0_10b.sql': {
-                  'path': 'validation/stage5_v05_canonical_integration/source/stage3_full_domain_v0_10b.sql.gz.b64',
-                  'ref': '679cbff1e0239836c9e3b984c20fbe9d508fd993',
-                  'sha256': 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc',
-              },
-              'stage5_canonical_live_fixture.sql': {
-                  'path': 'validation/stage5_v05_canonical_integration/source/stage5_canonical_live_fixture.sql.gz.b64',
-                  'ref': '0a86c8c7dd56a0e1d9f70295fbcd02c732f0be3f',
-                  'sha256': '9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9',
-              },
-              'stage5_canonical_live_assertions.sql': {
-                  'path': 'validation/stage5_v05_canonical_integration/source/stage5_canonical_live_assertions.sql.gz.b64',
-                  'ref': '1564761b912f59b6de2dd84fa818f700f87a6768',
-                  'sha256': 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd',
-              },
+          source_ref = os.environ['SOURCE_REF']
+          expected = {
+              'stage3_full_domain_v0_10b.sql': 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc',
+              'stage5_canonical_live_fixture.sql': '9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9',
+              'stage5_canonical_live_assertions.sql': 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd',
           }
           report = {}
-          for output_name, spec in specs.items():
-              quoted_path = urllib.parse.quote(spec['path'], safe='/')
-              url = f'https://api.github.com/repos/{repository}/contents/{quoted_path}?ref={spec["ref"]}'
-              request = urllib.request.Request(
-                  url,
-                  headers={
-                      'Accept': 'application/vnd.github+json',
-                      'Authorization': f'Bearer {token}',
-                      'User-Agent': 'Politica-Stage5-v0.5-validation/1.0',
-                      'X-GitHub-Api-Version': '2022-11-28',
-                  },
+          current_name = None
+          try:
+              for output_name, expected_sha in expected.items():
+                  current_name = output_name
+                  path = f'validation/stage5_v05_canonical_integration/source/{output_name}.gz.b64'
+                  quoted_path = urllib.parse.quote(path, safe='/')
+                  quoted_ref = urllib.parse.quote(source_ref, safe='')
+                  url = f'https://api.github.com/repos/{repository}/contents/{quoted_path}?ref={quoted_ref}'
+                  request = urllib.request.Request(
+                      url,
+                      headers={
+                          'Accept': 'application/vnd.github+json',
+                          'Authorization': f'Bearer {token}',
+                          'User-Agent': 'Politica-Stage5-v0.5-validation/1.0',
+                          'X-GitHub-Api-Version': '2022-11-28',
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=30) as response:
+                          metadata = json.loads(response.read().decode('utf-8'))
+                  except urllib.error.HTTPError as exc:
+                      body = exc.read().decode('utf-8', errors='replace')
+                      raise RuntimeError(f'Contents API HTTP {exc.code} for {url}: {body}') from exc
+                  encoded_file_bytes = base64.b64decode(metadata['content'])
+                  encoded = encoded_file_bytes.decode('ascii').strip()
+                  (source_target / f'{output_name}.gz.b64').write_text(encoded, encoding='ascii')
+                  compressed = base64.b64decode(encoded, validate=True)
+                  decoded = gzip.decompress(compressed)
+                  actual_sha = hashlib.sha256(decoded).hexdigest()
+                  if actual_sha != expected_sha:
+                      raise RuntimeError(f'SHA-256 mismatch for {output_name}: {actual_sha}')
+                  (target / output_name).write_bytes(decoded)
+                  report[output_name] = {
+                      'contents_api_url': url,
+                      'source_ref': source_ref,
+                      'git_blob_sha': metadata['sha'],
+                      'encoded_bytes': len(encoded),
+                      'decoded_bytes': len(decoded),
+                      'sha256': actual_sha,
+                  }
+              (evidence / 'input_reconstruction.json').write_text(
+                  json.dumps(report, indent=2, sort_keys=True), encoding='utf-8'
               )
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  metadata = json.loads(response.read().decode('utf-8'))
-              encoded_file_bytes = base64.b64decode(metadata['content'])
-              encoded = encoded_file_bytes.decode('ascii').strip()
-              (source_target / f'{output_name}.gz.b64').write_text(encoded, encoding='ascii')
-              compressed = base64.b64decode(encoded, validate=True)
-              decoded = gzip.decompress(compressed)
-              actual_sha = hashlib.sha256(decoded).hexdigest()
-              if actual_sha != spec['sha256']:
-                  raise SystemExit(f'SHA-256 mismatch for {output_name}: {actual_sha}')
-              (target / output_name).write_bytes(decoded)
-              report[output_name] = {
-                  'contents_api_url': url,
-                  'git_blob_sha': metadata['sha'],
-                  'encoded_bytes': len(encoded),
-                  'decoded_bytes': len(decoded),
-                  'sha256': actual_sha,
+              print(json.dumps(report, indent=2, sort_keys=True))
+          except Exception as exc:
+              diagnostic = {
+                  'current_output_name': current_name,
+                  'source_ref': source_ref,
+                  'completed': report,
+                  'error_type': type(exc).__name__,
+                  'error': str(exc),
+                  'traceback': traceback.format_exc(),
               }
-          (evidence / 'input_reconstruction.json').write_text(
-              json.dumps(report, indent=2, sort_keys=True), encoding='utf-8'
-          )
-          print(json.dumps(report, indent=2, sort_keys=True))
+              (evidence / 'reconstruction_error.json').write_text(
+                  json.dumps(diagnostic, indent=2, sort_keys=True), encoding='utf-8'
+              )
+              print(json.dumps(diagnostic, indent=2, sort_keys=True))
+              raise
           PY
           sha256sum "$EVIDENCE/sql/stage3_full_domain_v0_10b.sql" | tee "$EVIDENCE/schema.sha256"
           sha256sum "$EVIDENCE/sql/stage5_canonical_live_fixture.sql" | tee "$EVIDENCE/fixture.sha256"
