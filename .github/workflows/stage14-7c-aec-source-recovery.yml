@@ -1,0 +1,41 @@
+name: Stage 14.7C AEC source recovery
+
+on:
+  push:
+    branches:
+      - agent/stage14-7c-aec-source-recovery
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out isolated recovery branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile collector
+        run: python -m py_compile scripts/stage14_7c_fetch_sources.py
+
+      - name: Recover and verify the 47 governed AEC files
+        env:
+          STAGE147C_OUTPUT: stage14_7c_raw
+        run: python scripts/stage14_7c_fetch_sources.py
+
+      - name: Upload immutable recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7c-aec-source-recovery
+          path: stage14_7c_raw
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
