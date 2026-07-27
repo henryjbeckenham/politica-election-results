@@ -31,12 +31,9 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: postgres
       EVIDENCE: validation/stage5_v05_canonical_integration/evidence
-      SOURCE: validation/stage5_v05_canonical_integration/source
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/stage5-v0-5-canonical-integration-validation
 
       - name: Install PostgreSQL client
         shell: bash
@@ -45,11 +42,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
 
-      - name: Reconstruct and verify governed SQL inputs
+      - name: Retrieve, reconstruct and verify governed SQL inputs
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs"
+          mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs" "$EVIDENCE/source"
           python - <<'PY'
           from pathlib import Path
           import base64
@@ -57,31 +54,45 @@ jobs:
           import hashlib
           import json
           import os
+          import urllib.request
 
-          source = Path(os.environ['SOURCE'])
-          target = Path(os.environ['EVIDENCE']) / 'sql'
-          expected = {
-              'stage3_full_domain_v0_10b.sql': 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc',
-              'stage5_canonical_live_fixture.sql': '9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9',
-              'stage5_canonical_live_assertions.sql': 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd',
+          evidence = Path(os.environ['EVIDENCE'])
+          target = evidence / 'sql'
+          source_target = evidence / 'source'
+          specs = {
+              'stage3_full_domain_v0_10b.sql': {
+                  'url': 'https://raw.githubusercontent.com/henryjbeckenham/politica-election-results/679cbff1e0239836c9e3b984c20fbe9d508fd993/validation/stage5_v05_canonical_integration/source/stage3_full_domain_v0_10b.sql.gz.b64',
+                  'sha256': 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc',
+              },
+              'stage5_canonical_live_fixture.sql': {
+                  'url': 'https://raw.githubusercontent.com/henryjbeckenham/politica-election-results/0a86c8c7dd56a0e1d9f70295fbcd02c732f0be3f/validation/stage5_v05_canonical_integration/source/stage5_canonical_live_fixture.sql.gz.b64',
+                  'sha256': '9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9',
+              },
+              'stage5_canonical_live_assertions.sql': {
+                  'url': 'https://raw.githubusercontent.com/henryjbeckenham/politica-election-results/1564761b912f59b6de2dd84fa818f700f87a6768/validation/stage5_v05_canonical_integration/source/stage5_canonical_live_assertions.sql.gz.b64',
+                  'sha256': 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd',
+              },
           }
           report = {}
-          for output_name, expected_sha in expected.items():
-              input_path = source / f'{output_name}.gz.b64'
-              encoded = input_path.read_text(encoding='ascii').strip()
+          for output_name, spec in specs.items():
+              request = urllib.request.Request(spec['url'], headers={'User-Agent': 'Politica-Stage5-v0.5-validation/1.0'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  encoded_bytes = response.read()
+              encoded = encoded_bytes.decode('ascii').strip()
+              (source_target / f'{output_name}.gz.b64').write_text(encoded, encoding='ascii')
               compressed = base64.b64decode(encoded, validate=True)
               decoded = gzip.decompress(compressed)
               actual_sha = hashlib.sha256(decoded).hexdigest()
-              if actual_sha != expected_sha:
+              if actual_sha != spec['sha256']:
                   raise SystemExit(f'SHA-256 mismatch for {output_name}: {actual_sha}')
               (target / output_name).write_bytes(decoded)
               report[output_name] = {
-                  'source_file': str(input_path),
+                  'source_url': spec['url'],
                   'encoded_bytes': len(encoded),
                   'decoded_bytes': len(decoded),
                   'sha256': actual_sha,
               }
-          (Path(os.environ['EVIDENCE']) / 'input_reconstruction.json').write_text(
+          (evidence / 'input_reconstruction.json').write_text(
               json.dumps(report, indent=2, sort_keys=True), encoding='utf-8'
           )
           print(json.dumps(report, indent=2, sort_keys=True))
