@@ -1,0 +1,96 @@
+--- a/visualisation/package.json
++++ b/visualisation/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "politica-election-results-public-site",
+   "private": true,
+-  "version": "1.8.0",
++  "version": "1.9.0",
+   "type": "module",
+   "scripts": {
+     "build": "node scripts/clean-build.mjs && observable build",
+--- a/visualisation/package-lock.json
++++ b/visualisation/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "politica-election-results-public-site",
+-  "version": "1.8.0",
++  "version": "1.9.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "politica-election-results-public-site",
+-      "version": "1.8.0",
++      "version": "1.9.0",
+       "dependencies": {
+         "@observablehq/framework": "1.13.4"
+       },
+--- a/visualisation/src/components/results.js
++++ b/visualisation/src/components/results.js
+@@ -266,7 +266,7 @@
+           </div>
+         </section>
+ 
+-        <footer class="pr-footer"><span>Politica Election Results · Application 1.8.0</span><span>Schema 0.2.0 · Feed contract 1.8.0 · Visualisation contract 2.0.0</span></footer>
++        <footer class="pr-footer"><span>Politica Election Results · Application 1.9.0</span><span>Schema 0.2.0 · Feed contract 1.9.0 · Visualisation contract 2.0.0</span></footer>
+       </main>
+     </div>`;
+ }
+@@ -1413,7 +1413,9 @@
+     setText(
+       mount,
+       "#pr-map-note",
+-      `Zoom from 100% to 4,000% using the slider, + and −, a mouse wheel, trackpad, double-click or pinch. Drag to pan. Boundaries: Australian Electoral Commission, effective ${boundary.effective_as_at || "for the selected election"}; simplified for web display without removing a division.`
++      boundary.status === "unavailable"
++        ? (boundary.unavailability?.display_message || "A governed electorate boundary map is unavailable for this election.")
++        : `Zoom from 100% to 4,000% using the slider, + and −, a mouse wheel, trackpad, double-click or pinch. Drag to pan. Boundaries: Australian Electoral Commission, effective ${boundary.effective_as_at || "for the selected election"}; simplified for web display without removing a division.`
+     );
+     populateElectionOptions();
+     renderMetrics();
+@@ -1443,16 +1445,19 @@
+       fetchImpl,
+       contractPath(apiBase, staticBase, electionId)
+     );
+-    const boundaryAsset = visualisations?.boundary_geometry?.derived_geometry?.public_asset_path;
+-    if (!boundaryAsset) throw new Error("The governed electorate-boundary asset is not registered");
+-    const [representations, boundaries] = await Promise.all([
+-      Promise.all(INITIAL_FEEDS.map(async (feed) => [
+-        feed,
+-        await fetchJson(fetchImpl, publicPath(feed, "json", electionId, apiBase, staticBase))
+-      ])),
+-      fetchJson(fetchImpl, staticBase ? `${staticBase}/${boundaryAsset}` : `/results/data/${boundaryAsset}`)
+-    ]);
+-    if (!Array.isArray(boundaries?.features) || !boundaries.features.length) {
++    const boundaryContract = visualisations?.boundary_geometry || {};
++    const boundaryUnavailable = boundaryContract.status === "unavailable";
++    const boundaryAsset = boundaryContract?.derived_geometry?.public_asset_path;
++    if (!boundaryUnavailable && !boundaryAsset) throw new Error("The governed electorate-boundary asset is not registered");
++    const representationsPromise = Promise.all(INITIAL_FEEDS.map(async (feed) => [
++      feed,
++      await fetchJson(fetchImpl, publicPath(feed, "json", electionId, apiBase, staticBase))
++    ]));
++    const boundariesPromise = boundaryUnavailable
++      ? Promise.resolve({type: "FeatureCollection", features: []})
++      : fetchJson(fetchImpl, staticBase ? `${staticBase}/${boundaryAsset}` : `/results/data/${boundaryAsset}`);
++    const [representations, boundaries] = await Promise.all([representationsPromise, boundariesPromise]);
++    if (!boundaryUnavailable && (!Array.isArray(boundaries?.features) || !boundaries.features.length)) {
+       throw new Error("The governed electorate-boundary asset contains no features");
+     }
+     state.electionId = electionId;
+--- a/visualisation/src/foundation/source-panel.js
++++ b/visualisation/src/foundation/source-panel.js
+@@ -19,10 +19,10 @@
+     ["Release ID", release.release_id],
+     ["Database SHA-256", release.database_sha256],
+     ["Release manifest SHA-256", release.release_manifest_sha256],
+-    ["Application / schema", `${release.application_version || "1.8.0"} / ${release.schema_version || "0.2.0"}`],
+-    ["Feed contract", catalogue.feed_version || "1.8.0"],
++    ["Application / schema", `${release.application_version || "1.9.0"} / ${release.schema_version || "0.2.0"}`],
++    ["Feed contract", catalogue.feed_version || "1.9.0"],
+     ["Visualisation contract", `${visualisations.contract_version || "2.0.0"} · ${safeReleasePart(visualisations.contract_sha256, 18)}`],
+-    ["House boundary dataset", `${boundary.feature_count || "—"} divisions · ${boundary.effective_as_at || "Unavailable"}`],
++    ["House boundary dataset", boundary.status === "unavailable" ? "Unavailable · no later-boundary substitution" : `${boundary.feature_count || "—"} divisions · ${boundary.effective_as_at || "Unavailable"}`],
+     ["Boundary contract SHA-256", safeReleasePart(boundary.contract_sha256, 28)],
+     ["Boundary GeoJSON SHA-256", safeReleasePart(derivedBoundary.sha256, 28)]
+   ];
