@@ -1,0 +1,42 @@
+name: Stage 5 v0.3 staged package checksum
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct and verify governed package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v03_package/work
+          cat \
+            validation/stage5_v03_package/chunk.000 \
+            validation/stage5_v03_package/chunk.001 \
+            validation/stage5_v03_package/chunk.002 \
+            validation/stage5_v03_package/chunk.003 \
+            validation/stage5_v03_package/tail.004_006 \
+            | tr -d '\r\n' \
+            | base64 --decode \
+            > validation/stage5_v03_package/work/politica_stage5_legislation_sync_v0_3.zip
+          printf '%s  %s\n' \
+            '09f11592625e88fe2fa28cc66e7fbf4658bc0fd402d08c8f146c9f658d322b01' \
+            'validation/stage5_v03_package/work/politica_stage5_legislation_sync_v0_3.zip' \
+            | sha256sum -c -
+          unzip -t validation/stage5_v03_package/work/politica_stage5_legislation_sync_v0_3.zip
+          sha256sum validation/stage5_v03_package/work/politica_stage5_legislation_sync_v0_3.zip \
+            > validation/stage5_v03_package/work/package.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v03-staged-package-check
+          path: validation/stage5_v03_package/work/
+          if-no-files-found: error
