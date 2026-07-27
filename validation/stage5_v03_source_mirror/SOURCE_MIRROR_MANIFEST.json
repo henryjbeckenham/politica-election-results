@@ -1,0 +1,72 @@
+{
+  "files": {
+    "config.example.toml": {
+      "byte_count": 966,
+      "sha256": "1c03e0d6e35f5a1af900c90a26b663fdbc732d677e5e74b919207126e5a68871"
+    },
+    "pyproject.toml": {
+      "byte_count": 480,
+      "sha256": "0de4f13cdfce6b02abb316569d861a535f44dd09e20d2b16d1faef2c6f3ad119"
+    },
+    "sql/stage5_runtime_assertions.sql": {
+      "byte_count": 1422,
+      "sha256": "77b64ba40f9b6ab658291e1d7ec6b6baa3e7b7610891ebdc764f7021767e8ee4"
+    },
+    "src/politica_stage5_sync/__init__.py": {
+      "byte_count": 82,
+      "sha256": "896a72ffa7a678b5c318fc3d0e75dbb7888a4470adac5eaaf9f9b2ae178e4cf9"
+    },
+    "src/politica_stage5_sync/cli.py": {
+      "byte_count": 7523,
+      "sha256": "908977fbcc577d436ae21b63e99acaea49c0340e3fa762cd8b4ee072d9ed058a"
+    },
+    "src/politica_stage5_sync/config.py": {
+      "byte_count": 2382,
+      "sha256": "7d3a1b7f213cfabbe703ad48e56eb3de7a25e620ab92a5d75b0a3af7a7160e0a"
+    },
+    "src/politica_stage5_sync/evidence.py": {
+      "byte_count": 1570,
+      "sha256": "ddb6a2232e0c509dd17047db5b73ea29811339a0f567b67fc38b2c6c29251dfc"
+    },
+    "src/politica_stage5_sync/fixtures.py": {
+      "byte_count": 1492,
+      "sha256": "41c95559aba30722e0b43e27800b236e2d735a9dd7f219b9324c42bea82facd5"
+    },
+    "src/politica_stage5_sync/http.py": {
+      "byte_count": 4937,
+      "sha256": "e2dc3ba8bf4001504b0e1287d712b061116364a9a2a5e05d16d793683901e89b"
+    },
+    "src/politica_stage5_sync/models.py": {
+      "byte_count": 1770,
+      "sha256": "eb3ec9f7fbd3c35a4f76eb1762fe54f379113b49502ca776236f3f7c6884ecbc"
+    },
+    "src/politica_stage5_sync/odata.py": {
+      "byte_count": 4782,
+      "sha256": "35bfbddc247b17ed128f0cc7a51bd066ac606ebf896d80c3d8ca47d540e7b33e"
+    },
+    "src/politica_stage5_sync/postgres.py": {
+      "byte_count": 2020,
+      "sha256": "ca55c541d30e674ae244733b22fcfa2bf06c1c5fa1d4719fb794d195481c2bbf"
+    },
+    "src/politica_stage5_sync/postgres_store.py": {
+      "byte_count": 16114,
+      "sha256": "5e2c2f99c3a219bacb43bd0703901799a39112af782508e5b73e1adddb1e74a0"
+    },
+    "src/politica_stage5_sync/runner.py": {
+      "byte_count": 10361,
+      "sha256": "56292123638854123a8b8775a7b8aa6b4cd88235c6d2560fa9b64087ff394612"
+    },
+    "src/politica_stage5_sync/store.py": {
+      "byte_count": 5506,
+      "sha256": "418946fbb8328a0b3bb9ea1816dbc3fd53d897d4bcaf3bb2a32b6c8981f483a7"
+    },
+    "src/politica_stage5_sync/strategy.py": {
+      "byte_count": 9764,
+      "sha256": "634ab609f91fc90e9c65ea78e69ff649d4e6a20847b3688e374e41b86fd7ed53"
+    }
+  },
+  "package_name": "politica_stage5_legislation_sync_v0_3.zip",
+  "package_sha256": "09f11592625e88fe2fa28cc66e7fbf4658bc0fd402d08c8f146c9f658d322b01",
+  "package_size_bytes": 93311,
+  "source_mirror_status": "exact_executable_source_mirror"
+}

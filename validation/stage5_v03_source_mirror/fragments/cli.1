@@ -1,0 +1,73 @@
+def add_run_arguments(parser: argparse.ArgumentParser, *, require_now: bool) -> None:
+    parser.add_argument("config", type=Path)
+    parser.add_argument("--state", type=Path)
+    parser.add_argument("--database-url")
+    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--contract-hash", required=True)
+    parser.add_argument("--previous-end", type=parse_datetime)
+    parser.add_argument("--now", type=parse_datetime, required=require_now)
+    parser.add_argument("--run-id")
+    parser.add_argument("--resume", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="politica-stage5-sync")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    validate = sub.add_parser("validate-config")
+    validate.add_argument("config", type=Path)
+    validate.set_defaults(handler=command_validate_config)
+
+    plan = sub.add_parser("plan-window")
+    plan.add_argument("config", type=Path)
+    plan.add_argument("--previous-end", type=parse_datetime)
+    plan.add_argument("--now", type=parse_datetime)
+    plan.add_argument("--source-field", default="registeredAt")
+    plan.set_defaults(handler=command_plan_window)
+
+    contract = sub.add_parser("capture-contract")
+    contract.add_argument("config", type=Path)
+    contract.add_argument("--baseline", type=Path, required=True)
+    contract.add_argument("--baseline-hash", required=True)
+    contract.add_argument("--state", type=Path, required=True)
+    contract.add_argument("--evidence", type=Path, required=True)
+    contract.set_defaults(handler=command_capture_contract)
+
+    fixture = sub.add_parser("run-fixture")
+    add_run_arguments(fixture, require_now=True)
+    fixture.add_argument("--fixtures", type=Path, required=True)
+    fixture.add_argument("--interrupt-after-pages", type=int)
+    fixture.add_argument("--fail-after-pages", type=int)
+    fixture.set_defaults(handler=command_run_fixture)
+
+    live = sub.add_parser("run-live")
+    add_run_arguments(live, require_now=False)
+    live.add_argument("--interrupt-after-pages", type=int)
+    live.add_argument("--fail-after-pages", type=int)
+    live.set_defaults(handler=command_run_live)
+
+    snapshot = sub.add_parser("snapshot-state")
+    snapshot.add_argument("--database-url", required=True)
+    snapshot.set_defaults(handler=lambda args: PostgresStateStore(args.database_url).snapshot())
+
+    pg = sub.add_parser("run-postgres")
+    pg.add_argument("--database-url", required=True)
+    pg.add_argument("--sql", action="append", required=True)
+    pg.add_argument("--evidence", type=Path, required=True)
+    pg.set_defaults(handler=command_run_postgres)
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    try:
+        result = args.handler(args)
+    except (OSError, ValueError, RuntimeError) as exc:
+        parser.error(str(exc))
+        return
+    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+
+
+if __name__ == "__main__":
+    main()

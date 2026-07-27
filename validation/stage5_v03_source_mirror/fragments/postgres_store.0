@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .models import Candidate, RunCheckpoint, RunMetrics
+from .postgres import validate_disposable_database_url
+from .strategy import candidate_identity, canonical_json_hash
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class PostgresStateStore:
+    """Disposable PostgreSQL-backed synchronisation state for Stage 5 integration tests."""
+
+    path = "postgresql://disposable-stage5-runtime"
+
+    def __init__(self, database_url: str, evidence_root: str | Path | None = None) -> None:
+        validate_disposable_database_url(database_url)
+        self.database_url = database_url
+        self.evidence_root = Path(evidence_root) if evidence_root is not None else None
+        try:
+            import psycopg  # type: ignore
+            from psycopg.types.json import Jsonb  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError(
+                "psycopg is required for PostgreSQL-backed Stage 5 state"
+            ) from exc
+        self._psycopg = psycopg
+        self._Jsonb = Jsonb
+        self._initialise()
+
+    def _connect(self):
+        return self._psycopg.connect(self.database_url)
+
+    def _initialise(self) -> None:
+        ddl = """
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        CREATE SCHEMA IF NOT EXISTS stage5_runtime;
+        CREATE TABLE IF NOT EXISTS stage5_runtime.runs (
+            run_id text PRIMARY KEY,
+            payload jsonb NOT NULL,
+            status text NOT NULL CHECK (status IN ('running','succeeded','interrupted','failed')),
+            started_at timestamptz NOT NULL,
+            resumed_at timestamptz,
+            finished_at timestamptz,
+            metrics jsonb,
+            error text
+        );
+        CREATE TABLE IF NOT EXISTS stage5_runtime.checkpoints (
+            run_id text NOT NULL REFERENCES stage5_runtime.runs(run_id),
+            entity_set text NOT NULL,
+            partition integer NOT NULL CHECK (partition >= 0),
+            cursor text,
+            completed_pages integer NOT NULL CHECK (completed_pages >= 0),
+            candidate_count integer NOT NULL CHECK (candidate_count >= 0),
+            updated_at timestamptz NOT NULL,
+            configuration_hash text NOT NULL,
+            contract_hash text NOT NULL,
+            PRIMARY KEY (run_id, entity_set, partition)
+        );
+        CREATE TABLE IF NOT EXISTS stage5_runtime.candidates (
+            candidate_identity text PRIMARY KEY,
+            entity_type text NOT NULL,
+            external_identifier text NOT NULL,
+            source_url text NOT NULL,
+            observed_fingerprint text,
+            item_hash text NOT NULL,
+            first_seen_run_id text NOT NULL,
+            last_seen_run_id text NOT NULL,
+            item jsonb NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS stage5_runtime_candidate_external_unique
+            ON stage5_runtime.candidates(entity_type, external_identifier);
+        CREATE TABLE IF NOT EXISTS stage5_runtime.raw_captures (
+            capture_identity text PRIMARY KEY,
+            record jsonb NOT NULL,
+            headers jsonb NOT NULL,
+            body bytea NOT NULL,
+            body_sha256 text NOT NULL CHECK (length(body_sha256) = 64),
+            byte_count integer NOT NULL CHECK (byte_count >= 0),
+            CHECK (octet_length(body) = byte_count),
+            CHECK (encode(digest(body, 'sha256'), 'hex') = body_sha256)
+        );
+        CREATE TABLE IF NOT EXISTS stage5_runtime.watermarks (
+            entity_set text PRIMARY KEY,
+            run_id text NOT NULL REFERENCES stage5_runtime.runs(run_id),
+            watermark jsonb NOT NULL
+        );
+        """
+        with self._connect() as connection:
+            connection.execute(ddl)
+
+    def start_run(self, run_id: str, payload: dict[str, Any]) -> None:
+        with self._connect() as connection:
+            try:
+                connection.execute(
+                    "INSERT INTO stage5_runtime.runs (run_id,payload,status,started_at) VALUES (%s,%s,'running',%s)",
+                    (run_id, self._Jsonb(payload), _now()),
+                )
+            except self._psycopg.errors.UniqueViolation as exc:
+                raise ValueError(f"run already exists: {run_id}") from exc
+
+    def resume_run(self, run_id: str) -> None:
+        with self._connect() as connection:

@@ -1,0 +1,32 @@
+[collector]
+base_url = "https://api.prod.legislation.gov.au/v1/"
+openapi_url = "https://api.prod.legislation.gov.au/swagger/v1/swagger.json"
+approved_hosts = ["api.prod.legislation.gov.au"]
+user_agent = "Politica-Stage5-Legislation-Synchroniser/0.3"
+request_timeout_seconds = 30
+request_ceiling = 64
+response_size_ceiling_bytes = 8388608
+max_concurrency = 1
+retry_ceiling = 4
+page_size = 1
+collector_version = "stage5-v0.3"
+
+[synchronisation]
+mode = "incremental_with_reconciliation"
+overlap_hours = 72
+reconciliation_partition_count = 64
+full_reconciliation_interval_days = 30
+hot_set_days = 45
+disappearance_confirmation_runs = 2
+contract_drift_policy = "block_affected_normalisation"
+
+[database]
+required_postgresql_major = 18
+allow_production_targets = false
+connection_environment_variable = "POLITICA_STAGE5_DATABASE_URL"
+
+[retention]
+metadata_default = "exact_bytes"
+document_default = "external_object"
+retain_headers = true
+retain_request_parameters = true

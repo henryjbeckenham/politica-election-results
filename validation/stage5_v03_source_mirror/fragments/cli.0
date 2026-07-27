@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .config import load_config
+from .evidence import EvidenceWriter
+from .fixtures import load_baseline_contract, load_fixture_transport
+from .http import UrllibTransport
+from .postgres import run_psql_package
+from .postgres_store import PostgresStateStore
+from .runner import Stage5Runner
+from .store import JsonStateStore
+from .strategy import build_discovery_window
+
+
+def parse_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError("datetime must include a timezone")
+    return parsed
+
+
+def make_live_transport(config):
+    collector = config.raw["collector"]
+    return UrllibTransport(
+        approved_hosts=list(collector["approved_hosts"]),
+        user_agent=collector["user_agent"],
+        timeout_seconds=int(collector["request_timeout_seconds"]),
+        retry_ceiling=int(collector["retry_ceiling"]),
+        request_ceiling=int(collector["request_ceiling"]),
+        response_size_ceiling_bytes=int(collector["response_size_ceiling_bytes"]),
+    )
+
+
+def make_state_store(args: argparse.Namespace):
+    if getattr(args, "database_url", None):
+        if getattr(args, "state", None) is not None:
+            raise ValueError("provide either --state or --database-url, not both")
+        return PostgresStateStore(args.database_url, evidence_root=getattr(args, "evidence", None))
+    if getattr(args, "state", None) is None:
+        raise ValueError("one of --state or --database-url is required")
+    return JsonStateStore(args.state)
+
+
+def command_validate_config(args: argparse.Namespace) -> dict:
+    config = load_config(args.config)
+    return {"status": "passed", "configuration_hash": config.hash}
+
+
+def command_plan_window(args: argparse.Namespace) -> dict:
+    config = load_config(args.config)
+    sync = config.raw["synchronisation"]
+    now = args.now or datetime.now(timezone.utc)
+    window = build_discovery_window(args.previous_end, now, int(sync["overlap_hours"]), args.source_field)
+    return {"status": "passed", "configuration_hash": config.hash, "window": window.as_dict()}
+
+
+def command_capture_contract(args: argparse.Namespace) -> dict:
+    config = load_config(args.config)
+    baseline = load_baseline_contract(args.baseline)
+    runner = Stage5Runner(
+        config=config,
+        transport=make_live_transport(config),
+        store=JsonStateStore(args.state),
+        evidence=EvidenceWriter(args.evidence),
+        contract_hash=args.baseline_hash,
+    )
+    return runner.capture_contract(baseline)
+
+
+def command_run_fixture(args: argparse.Namespace) -> dict:
+    config = load_config(args.config)
+    sync = config.raw["synchronisation"]
+    collector = config.raw["collector"]
+    transport = load_fixture_transport(
+        args.fixtures,
+        base_url=collector["base_url"],
+        page_size=int(collector["page_size"]),
+        previous_end=args.previous_end,
+        now=args.now,
+        overlap_hours=int(sync["overlap_hours"]),
+    )
+    runner = Stage5Runner(
+        config=config,
+        transport=transport,
+        store=make_state_store(args),
+        evidence=EvidenceWriter(args.evidence),
+        contract_hash=args.contract_hash,
+    )
+    result = runner.run_incremental(
+        previous_successful_end=args.previous_end,
+        now=args.now,
+        run_id=args.run_id,
+        resume=args.resume,
+        interrupt_after_pages=args.interrupt_after_pages,
+        fail_after_pages=args.fail_after_pages,
+    )
+    return result.__dict__
+
+
+def command_run_live(args: argparse.Namespace) -> dict:
+    config = load_config(args.config)
+    runner = Stage5Runner(
+        config=config,
+        transport=make_live_transport(config),
+        store=make_state_store(args),
+        evidence=EvidenceWriter(args.evidence),
+        contract_hash=args.contract_hash,
+    )
+    result = runner.run_incremental(
+        previous_successful_end=args.previous_end,
+        now=args.now or datetime.now(timezone.utc),
+        run_id=args.run_id,
+        resume=args.resume,
+        interrupt_after_pages=args.interrupt_after_pages,
+        fail_after_pages=args.fail_after_pages,
+    )
+    return result.__dict__
+
+
+def command_run_postgres(args: argparse.Namespace) -> dict:
+    return run_psql_package(args.database_url, [Path(value) for value in args.sql], args.evidence)
+
+
