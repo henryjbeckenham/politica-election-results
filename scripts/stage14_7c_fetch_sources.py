@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 EVENT='13745'
-BASE=f'https://results.aec.gov.au/{EVENT}/Website/Downloads'
+ROOT=f'https://results.aec.gov.au/{EVENT}/Website'
 OUT=Path(os.environ.get('STAGE147C_OUTPUT','stage14_7c_raw')).resolve()
 FILES=[
 'HouseCandidatesDownload-13745.csv','HouseMembersElectedDownload-13745.csv','HouseFirstPrefsByCandidateByVoteTypeDownload-13745.csv',
@@ -15,6 +15,7 @@ FILES=[
 'SenateStateBtlDownload-13745-NSW.zip','SenateStateBtlDownload-13745-VIC.zip','SenateStateBtlDownload-13745-QLD.zip','SenateStateBtlDownload-13745-WA.zip','SenateStateBtlDownload-13745-SA.zip','SenateStateBtlDownload-13745-TAS.zip','SenateStateBtlDownload-13745-ACT.zip','SenateStateBtlDownload-13745-NT.zip',
 'SenateInformalByStateDownload-13745.csv','SenateInformalByDivisionDownload-13745.csv','SenateTurnoutByStateDownload-13745.csv','SenateTurnoutByDivisionDownload-13745.csv','SenateVotesCountedByStateDownload-13745.csv','SenateVotesCountedByDivisionDownload-13745.csv','GeneralPollingPlacesDownload-13745.csv','GeneralEnrolmentByStateDownload-13745.csv','GeneralEnrolmentByDivisionDownload-13745.csv']
 
+def source_url(name): return f"{ROOT}/{'External' if name.endswith('.zip') else 'Downloads'}/{name}"
 def now(): return datetime.now(timezone.utc).isoformat()
 def sha(p):
  d=hashlib.sha256()
@@ -48,7 +49,7 @@ def snapshots(url):
 
 def acquire(name):
  dest=OUT/'official_sources'/name; dest.parent.mkdir(parents=True,exist_ok=True)
- official=f'{BASE}/{name}'; ref=f'https://results.aec.gov.au/{EVENT}/Website/Default.htm'; attempts=[]
+ official=source_url(name); ref=f'{ROOT}/Default.htm'; attempts=[]
  for method,url in [('aec_https',official),('aec_http',official.replace('https://','http://',1))]:
   ok,meta=curl(url,dest,ref); attempts.append({'method':method,**meta})
   if ok:return dest,method,url,attempts
@@ -59,7 +60,7 @@ def acquire(name):
  return None,None,None,attempts
 
 def verify(name,p):
- rec={'filename':name,'official_url':f'{BASE}/{name}','retrieved_at':now(),'size_bytes':p.stat().st_size,'sha256':sha(p),'event_id_in_filename':f'-{EVENT}' in name,'html_rejected':not html(p)}
+ rec={'filename':name,'official_url':source_url(name),'retrieved_at':now(),'size_bytes':p.stat().st_size,'sha256':sha(p),'event_id_in_filename':f'-{EVENT}' in name,'html_rejected':not html(p)}
  if name.endswith('.csv'):
   s=p.read_bytes()[:1048576]
   enc=None
@@ -85,7 +86,7 @@ def main():
   print(f'[{i:02d}/47] {name}',flush=True); p,method,url,attempts=acquire(name)
   if p:
    r=verify(name,p);r.update({'retrieval_status':'retrieved','retrieval_method':method,'retrieved_url':url,'attempts':attempts})
-  else:r={'filename':name,'official_url':f'{BASE}/{name}','retrieval_status':'blocked','verification_status':'BLOCKED','attempts':attempts}
+  else:r={'filename':name,'official_url':source_url(name),'retrieval_status':'blocked','verification_status':'BLOCKED','attempts':attempts}
   records.append(r);print(f"  {r['retrieval_status']} / {r['verification_status']}",flush=True)
  passed=sum(r['verification_status']=='PASS' for r in records)
  manifest={'schema_version':1,'stage':'14.7C','event_id':EVENT,'generated_at':now(),'required':47,'retrieved':sum(r['retrieval_status']=='retrieved' for r in records),'verified':passed,'status':'PASS' if passed==47 else 'COMPLETE_WITH_RECORDED_BLOCKERS','records':records}
