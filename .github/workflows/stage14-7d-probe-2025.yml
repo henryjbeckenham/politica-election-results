@@ -22,4 +22,10 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install PyYAML
-      - run: python scripts/stage14_7d_probe_2025_sources.py
+      - run: python scripts/stage14_7d_probe_2025_sources.py | tee STAGE_14_7D_2025_SOURCE_PROBE.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-2025-source-probe
+          path: STAGE_14_7D_2025_SOURCE_PROBE.tsv
+          if-no-files-found: error
+          retention-days: 7
