@@ -1,0 +1,53 @@
+name: Stage 14.7D browser validation
+
+on:
+  push:
+    branches:
+      - agent/stage14-7d-build
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: visualisation/package-lock.json
+      - name: Apply the candidate visualisation changes
+        run: git apply scripts/stage14_7d_visualisation.patch
+      - name: Install exact browser dependencies
+        working-directory: visualisation
+        run: npm ci
+      - name: Build the version 1.9.0 application
+        working-directory: visualisation
+        env:
+          OBSERVABLE_TELEMETRY_DISABLE: '1'
+        run: npm run build:app 2>&1 | tee ../STAGE_14_7D_BROWSER_BUILD.log
+      - name: Run browser-runtime tests
+        working-directory: visualisation
+        run: npm test 2>&1 | tee ../STAGE_14_7D_BROWSER_TEST.log
+      - name: Record checksums
+        run: sha256sum STAGE_14_7D_BROWSER_BUILD.log STAGE_14_7D_BROWSER_TEST.log > STAGE_14_7D_BROWSER_CHECKSUMS.sha256
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage14-7d-browser-validation
+          path: |
+            STAGE_14_7D_BROWSER_BUILD.log
+            STAGE_14_7D_BROWSER_TEST.log
+            STAGE_14_7D_BROWSER_CHECKSUMS.sha256
+            visualisation/dist
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
