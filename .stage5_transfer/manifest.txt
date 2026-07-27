@@ -1,0 +1,7 @@
+file=politica_stage5_legislation_sync_v0_2.zip
+size=125738
+sha256=c8d685502120e0acf04f974fbd8d109eda84d7a03926f00d71d5dfe6cf68ecc1
+base64_sha256=55ebcb754ee0382b34c1038f91960227de07e3229624f6fcda29c98363a5917d
+chunks=10
+pattern=package.b64.part.*
+transfer_method=mechanically generated base64 from the exact Drive download; exact SHA-256 gate mandatory
