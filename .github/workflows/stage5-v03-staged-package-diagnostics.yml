@@ -1,0 +1,58 @@
+name: Stage 5 v0.3 staged package diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyse staged parts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v03_package/diagnostics
+          python - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, json
+          root=Path('validation/stage5_v03_package')
+          names=['chunk.000','chunk.001','chunk.002','chunk.003','tail.004_006']
+          rows=[]
+          decoded=[]
+          texts=[]
+          for name in names:
+              raw=(root/name).read_bytes()
+              compact=b''.join(raw.split())
+              row={'name':name,'raw_bytes':len(raw),'compact_chars':len(compact),'text_sha256':hashlib.sha256(compact).hexdigest()}
+              try:
+                  body=base64.b64decode(compact,validate=True)
+                  row.update(decoded_bytes=len(body),decoded_sha256=hashlib.sha256(body).hexdigest(),decode='valid')
+                  decoded.append(body)
+              except Exception as exc:
+                  row.update(decode='invalid',error=str(exc))
+              texts.append(compact)
+              rows.append(row)
+          combined=b''.join(texts)
+          out={'expected_base64_chars':124416,'expected_zip_bytes':93311,'expected_zip_sha256':'09f11592625e88fe2fa28cc66e7fbf4658bc0fd402d08c8f146c9f658d322b01','parts':rows,'combined_chars':len(combined)}
+          try:
+              body=base64.b64decode(combined,validate=True)
+              out['combined_decode']={'status':'valid','bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+          except Exception as exc:
+              out['combined_decode']={'status':'invalid','error':str(exc)}
+          if len(decoded)==len(names):
+              body=b''.join(decoded)
+              out['individual_decode_concat']={'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+          p=root/'diagnostics'/'parts.json'
+          p.write_text(json.dumps(out,indent=2,sort_keys=True))
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage5-v03-staged-package-diagnostics
+          path: validation/stage5_v03_package/diagnostics/
