@@ -1,0 +1,25 @@
+name: Stage 14.7D probe 2025 sources
+
+on:
+  push:
+    branches:
+      - agent/stage14-7d-build
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install PyYAML
+      - run: python scripts/stage14_7d_probe_2025_sources.py
