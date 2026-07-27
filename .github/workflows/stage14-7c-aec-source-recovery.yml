@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/stage14-7c-aec-source-recovery
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
