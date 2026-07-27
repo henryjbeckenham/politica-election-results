@@ -35,6 +35,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/stage5-v0-5-canonical-integration-validation
 
       - name: Install PostgreSQL client
         shell: bash
@@ -48,16 +50,45 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs"
-          for file in "$SOURCE"/*.gz.b64; do
-            output="$EVIDENCE/sql/$(basename "${file%.gz.b64}")"
-            base64 -d "$file" | gzip -d > "$output"
-          done
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import gzip
+          import hashlib
+          import json
+          import os
+
+          source = Path(os.environ['SOURCE'])
+          target = Path(os.environ['EVIDENCE']) / 'sql'
+          expected = {
+              'stage3_full_domain_v0_10b.sql': 'daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc',
+              'stage5_canonical_live_fixture.sql': '9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9',
+              'stage5_canonical_live_assertions.sql': 'ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd',
+          }
+          report = {}
+          for output_name, expected_sha in expected.items():
+              input_path = source / f'{output_name}.gz.b64'
+              encoded = input_path.read_text(encoding='ascii').strip()
+              compressed = base64.b64decode(encoded, validate=True)
+              decoded = gzip.decompress(compressed)
+              actual_sha = hashlib.sha256(decoded).hexdigest()
+              if actual_sha != expected_sha:
+                  raise SystemExit(f'SHA-256 mismatch for {output_name}: {actual_sha}')
+              (target / output_name).write_bytes(decoded)
+              report[output_name] = {
+                  'source_file': str(input_path),
+                  'encoded_bytes': len(encoded),
+                  'decoded_bytes': len(decoded),
+                  'sha256': actual_sha,
+              }
+          (Path(os.environ['EVIDENCE']) / 'input_reconstruction.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True), encoding='utf-8'
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
           sha256sum "$EVIDENCE/sql/stage3_full_domain_v0_10b.sql" | tee "$EVIDENCE/schema.sha256"
           sha256sum "$EVIDENCE/sql/stage5_canonical_live_fixture.sql" | tee "$EVIDENCE/fixture.sha256"
           sha256sum "$EVIDENCE/sql/stage5_canonical_live_assertions.sql" | tee "$EVIDENCE/assertions.sha256"
-          grep -q '^daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc ' "$EVIDENCE/schema.sha256"
-          grep -q '^9e49589c98275493c83851bedb1b86ce617729c4daf53530a2db6e32666655a9 ' "$EVIDENCE/fixture.sha256"
-          grep -q '^ccc7ce4cb82bd7b3158d84a3516ceeb81d2315869bc72691886fbd7de0a260bd ' "$EVIDENCE/assertions.sha256"
 
       - name: Execute exact PostgreSQL 18.4 validation
         shell: bash
