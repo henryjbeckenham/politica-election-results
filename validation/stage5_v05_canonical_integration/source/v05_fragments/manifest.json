@@ -2,88 +2,29 @@
   "files": {
     "assertions": {
       "chunks": [
-        {
-          "base64_char_count": 600,
-          "byte_count": 600,
-          "path": "assertions_small/assertions.0",
-          "sequence": 0,
-          "sha256": "b641cd68163db94b999a81cc3995b2548d08d9a6ef922d1373f7097fb03a745e"
-        },
-        {
-          "base64_char_count": 600,
-          "byte_count": 600,
-          "path": "assertions_small/assertions.1",
-          "sequence": 1,
-          "sha256": "58e906ff2ef03f84e734cb8fbf6748e3684b15a1268402be4737ee03d9af53c3"
-        },
-        {
-          "base64_char_count": 600,
-          "byte_count": 600,
-          "path": "assertions_small/assertions.2",
-          "sequence": 2,
-          "sha256": "e7027c33bdd306a2f469add952ec70a5bc54f28349e7328c6f091c488b763c02"
-        },
-        {
-          "base64_char_count": 600,
-          "byte_count": 600,
-          "path": "assertions_small/assertions.3",
-          "sequence": 3,
-          "sha256": "3635038a254787e07d7d7baaff58aa6438dc99db130d651dbad1adaae85d1404"
-        },
-        {
-          "base64_char_count": 600,
-          "byte_count": 600,
-          "path": "assertions_small/assertions.4",
-          "sequence": 4,
-          "sha256": "7852089ac88e55bd992ba2b4caed55568776145bfc26baf413f941abf75d08f6"
-        },
-        {
-          "base64_char_count": 488,
-          "byte_count": 488,
-          "path": "assertions_small/assertions.5",
-          "sequence": 5,
-          "sha256": "ecc41817e2dd9ccecceb43c405212c7a2dff697042a2ec7fe17422172919895a"
-        }
+        {"base64_char_count":600,"byte_count":600,"path":"assertions_small/assertions.0","sequence":0,"sha256":"b641cd68163db94b999a81cc3995b2548d08d9a6ef922d1373f7097fb03a745e"},
+        {"base64_char_count":600,"byte_count":600,"path":"assertions_small/assertions.1","sequence":1,"sha256":"58e906ff2ef03f84e734cb8fbf6748e3684b15a1268402be4737ee03d9af53c3"},
+        {"base64_char_count":600,"byte_count":600,"path":"assertions_small/assertions.2","sequence":2,"sha256":"e7027c33bdd306a2f469add952ec70a5bc54f28349e7328c6f091c488b763c02"},
+        {"base64_char_count":600,"byte_count":600,"path":"assertions_small/assertions.3","sequence":3,"sha256":"3635038a254787e07d7d7baaff58aa6438dc99db130d651dbad1adaae85d1404"},
+        {"base64_char_count":600,"byte_count":600,"path":"assertions_small/assertions.4","sequence":4,"sha256":"7852089ac88e55bd992ba2b4caed55568776145bfc26baf413f941abf75d08f6"},
+        {"base64_char_count":488,"byte_count":488,"path":"assertions_small/assertions.5","sequence":5,"sha256":"ecc41817e2dd9ccecceb43c405212c7a2dff697042a2ec7fe17422172919895a"}
       ],
-      "combined_base64_char_count": 3488,
-      "decoded_byte_count": 13044,
-      "decoded_sha256": "acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7"
+      "combined_base64_char_count":3488,
+      "decoded_byte_count":13044,
+      "decoded_sha256":"acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7"
     },
     "fixture": {
       "chunks": [
-        {
-          "base64_char_count": 2300,
-          "byte_count": 2300,
-          "path": "fixture.0",
-          "sequence": 0,
-          "sha256": "ec2397a280cadef6a4914235b787d9d2f1f57d1a5250fa1f593542d993639c59"
-        },
-        {
-          "base64_char_count": 2300,
-          "byte_count": 2300,
-          "path": "fixture.1",
-          "sequence": 1,
-          "sha256": "a7f2b87933b23ad249e4a963d38035de852f8536fa74167cefb231312a214dfa"
-        },
-        {
-          "base64_char_count": 2300,
-          "byte_count": 2300,
-          "path": "fixture.2",
-          "sequence": 2,
-          "sha256": "e3e33f522dff615480f71f7438db37a0edab6324263237c41ddaf59e0d43093d"
-        },
-        {
-          "base64_char_count": 2300,
-          "byte_count": 2300,
-          "path": "fixture.3",
-          "sequence": 3,
-          "sha256": "f41849162883b7a86c531bcb4f04afe85415e8bb0f275ec0c32cb72c037733a7"
-        }
+        {"base64_char_count":2300,"byte_count":2300,"path":"fixture_planhash/fixture.0","sequence":0,"sha256":"beb43cfd2afa74a9731900a567a1bbc93f5f828b27cca8387bbc56f7375523e8"},
+        {"base64_char_count":2300,"byte_count":2300,"path":"fixture_planhash/fixture.1","sequence":1,"sha256":"3d1c5bd0ef1b0513d60b551764a36f89c57384663044ac09e8e8a9a58ca643c3"},
+        {"base64_char_count":2300,"byte_count":2300,"path":"fixture_planhash/fixture.2","sequence":2,"sha256":"1c49cf101e3ff8905a77f5c8af2dc05a1a1fb998e0e585260059856187caff58"},
+        {"base64_char_count":2300,"byte_count":2300,"path":"fixture_planhash/fixture.3","sequence":3,"sha256":"9c5d2050161f6afd485623ba4fcdbac32ceebd8b3f2c1aaeeacb3fc373c0b0aa"},
+        {"base64_char_count":4,"byte_count":4,"path":"fixture_planhash/fixture.4","sequence":4,"sha256":"e2d4768b3472b90ca749600da34e622122d16f61517c459a5d7915693ec4ccf3"}
       ],
-      "combined_base64_char_count": 9200,
-      "decoded_byte_count": 57644,
-      "decoded_sha256": "a5669eb5168c011e17d2756ac5e89b675c04efb0e905707e373cb1dad3a08531"
+      "combined_base64_char_count":9204,
+      "decoded_byte_count":57644,
+      "decoded_sha256":"d051ffaa3fb53686fe44a2d39d41df20a8fbe2281cd17cd5337fb03b7c3336ed"
     }
   },
-  "version": 2
+  "version":3
 }
