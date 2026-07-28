@@ -7,19 +7,19 @@
           "byte_count": 1800,
           "path": "assertions.0",
           "sequence": 0,
-          "sha256": "8639d4a3743ab4e084c053498ad25fe384f28ffc40e4182efe6989d6d86365d2"
+          "sha256": "862cf04005b5fd8cc03131936408d4b4301616034d379f221678f78155667878"
         },
         {
-          "base64_char_count": 1692,
-          "byte_count": 1692,
+          "base64_char_count": 1688,
+          "byte_count": 1688,
           "path": "assertions.1",
           "sequence": 1,
-          "sha256": "19e47ed377b212daf1b7d64bb193bf326565f5f8831d80bbd9ebb5b6449355c4"
+          "sha256": "c2d4d3165275480c52cc46c74783d6884fb7689d4da24de22ebef77754049e93"
         }
       ],
-      "combined_base64_char_count": 3492,
-      "decoded_byte_count": 13065,
-      "decoded_sha256": "c09ba15f78f4e7a04bcec401f03f7f29abc24509b975ef258a03cde4739a3ebd"
+      "combined_base64_char_count": 3488,
+      "decoded_byte_count": 13044,
+      "decoded_sha256": "acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7"
     },
     "fixture": {
       "chunks": [
