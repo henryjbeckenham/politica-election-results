@@ -1,0 +1,61 @@
+name: Stage 5 v0.6 retention-only extraction
+
+on:
+  push:
+    branches:
+      - agent/stage5-v0-6-retention-only
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download accepted closure artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: politica-stage5-v0-6-final-closure
+          path: accepted
+          github-token: ${{ github.token }}
+          repository: henryjbeckenham/politica-election-results
+          run-id: 30363684578
+      - name: Verify exact accepted release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd accepted
+          sha256sum -c release_files.sha256
+          test "$(sha256sum politica_stage5_legislation_sync_v0_6.zip | cut -d' ' -f1)" = f39d751ecafd93fdacee0e9a5f8637b59653207c712217b36fee7eb1a5cd2d10
+          test "$(sha256sum politica_stage5_v0_6_closure_evidence.zip | cut -d' ' -f1)" = 9b81c83b54ebcb4be2ab1fec0ae722e92a2c81d34ed07ef2ae25b7fb6f73be33
+          unzip -tq politica_stage5_legislation_sync_v0_6.zip
+          unzip -tq politica_stage5_v0_6_closure_evidence.zip
+          printf '%s  %s\n' f39d751ecafd93fdacee0e9a5f8637b59653207c712217b36fee7eb1a5cd2d10 politica_stage5_legislation_sync_v0_6.zip > politica_stage5_legislation_sync_v0_6.zip.sha256
+          printf '%s  %s\n' 9b81c83b54ebcb4be2ab1fec0ae722e92a2c81d34ed07ef2ae25b7fb6f73be33 politica_stage5_v0_6_closure_evidence.zip > politica_stage5_v0_6_closure_evidence.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-package
+          path: accepted/politica_stage5_legislation_sync_v0_6.zip
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-package-checksum
+          path: accepted/politica_stage5_legislation_sync_v0_6.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-closure-evidence
+          path: accepted/politica_stage5_v0_6_closure_evidence.zip
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-evidence-checksum
+          path: accepted/politica_stage5_v0_6_closure_evidence.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
