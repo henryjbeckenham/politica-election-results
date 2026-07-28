@@ -1,0 +1,206 @@
+name: Stage 5 v0.6 reconstruction diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ROOT: validation/stage5_v06_full_reconciliation
+      DIAG: validation/stage5_v06_full_reconciliation/reconstruction_diagnostic
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record exact diagnostic inputs
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIAG"
+          {
+            uname -a
+            python --version
+            patch --version | head -n 1
+          } > "$DIAG/environment.txt"
+          sha256sum \
+            "$ROOT/reconstruct_sources.py" \
+            "$ROOT/source/manifest.json" \
+            "$ROOT/apply_governed_baseline_correction.py" \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" \
+            > "$DIAG/input_sha256.txt"
+          find "$ROOT/source/chunks" -maxdepth 1 -type f -name 'chunk_*.txt' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$DIAG/chunk_sha256.txt"
+          find "$ROOT/source/chunks" -maxdepth 1 -type f -name 'chunk_*.txt' -print0 \
+            | sort -z \
+            | xargs -0 wc -c \
+            > "$DIAG/chunk_byte_counts.txt"
+
+      - name: Reconstruct governed sources
+        id: reconstruct
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          python "$ROOT/reconstruct_sources.py" \
+            --source "$ROOT/source" \
+            --output "$ROOT" \
+            --report "$ROOT/source_reconstruction.json" \
+            > "$DIAG/reconstruct.stdout.log" \
+            2> "$DIAG/reconstruct.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$DIAG/reconstruct.exit_code.txt"
+          exit "$code"
+
+      - name: Verify and apply governed baseline correction
+        id: baseline
+        if: steps.reconstruct.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          expected='113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb'
+          actual="$(sha256sum "$ROOT/apply_governed_baseline_correction.py" | awk '{print $1}')"
+          printf 'expected=%s\nactual=%s\n' "$expected" "$actual" > "$DIAG/baseline_script_hash.txt"
+          if test "$actual" != "$expected"; then
+            printf 'baseline correction script SHA-256 mismatch\n' > "$DIAG/baseline.stderr.log"
+            printf '90\n' > "$DIAG/baseline.exit_code.txt"
+            exit 90
+          fi
+          python "$ROOT/apply_governed_baseline_correction.py" \
+            > "$DIAG/baseline.stdout.log" \
+            2> "$DIAG/baseline.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$DIAG/baseline.exit_code.txt"
+          if test -f "$ROOT/full_reconciliation.py"; then
+            sha256sum "$ROOT/full_reconciliation.py" > "$DIAG/full_reconciliation.after_baseline.sha256"
+            wc -c "$ROOT/full_reconciliation.py" > "$DIAG/full_reconciliation.after_baseline.bytes"
+          fi
+          exit "$code"
+
+      - name: Verify and apply duplicate-observation patch
+        id: duplicate
+        if: steps.baseline.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          expected='035b4ba5d3f2cee24dd2f605abc86b16dd1e561f74d535cad77c20da60b4a79f'
+          actual="$(sha256sum "$ROOT/apply_governed_duplicate_observation_patch.py" | awk '{print $1}')"
+          printf 'expected=%s\nactual=%s\n' "$expected" "$actual" > "$DIAG/duplicate_script_hash.txt"
+          if test "$actual" != "$expected"; then
+            printf 'duplicate-observation patch script SHA-256 mismatch\n' > "$DIAG/duplicate.stderr.log"
+            printf '91\n' > "$DIAG/duplicate.exit_code.txt"
+            exit 91
+          fi
+          python "$ROOT/apply_governed_duplicate_observation_patch.py" \
+            > "$DIAG/duplicate.stdout.log" \
+            2> "$DIAG/duplicate.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$DIAG/duplicate.exit_code.txt"
+          if test -f "$ROOT/full_reconciliation.py"; then
+            sha256sum "$ROOT/full_reconciliation.py" > "$DIAG/full_reconciliation.after_duplicate.sha256"
+            wc -c "$ROOT/full_reconciliation.py" > "$DIAG/full_reconciliation.after_duplicate.bytes"
+          fi
+          exit "$code"
+
+      - name: Compile reconstructed sources
+        id: compile
+        if: steps.duplicate.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          python -m py_compile \
+            "$ROOT/full_reconciliation.py" \
+            "$ROOT/test_full_reconciliation.py" \
+            "$ROOT/finalize_reconciliation.py" \
+            "$ROOT/build_deterministic_zip.py" \
+            "$ROOT/apply_governed_baseline_correction.py" \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" \
+            > "$DIAG/compile.stdout.log" \
+            2> "$DIAG/compile.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$DIAG/compile.exit_code.txt"
+          exit "$code"
+
+      - name: Validate shell syntax
+        id: shell
+        if: steps.compile.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          bash -n "$ROOT/run_full_reconciliation.sh" \
+            > "$DIAG/shell.stdout.log" \
+            2> "$DIAG/shell.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$DIAG/shell.exit_code.txt"
+          exit "$code"
+
+      - name: Build diagnostic summary
+        if: always()
+        shell: bash
+        env:
+          INPUTS_OUTCOME: ${{ steps.inputs.outcome }}
+          RECONSTRUCT_OUTCOME: ${{ steps.reconstruct.outcome }}
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+          DUPLICATE_OUTCOME: ${{ steps.duplicate.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+          SHELL_OUTCOME: ${{ steps.shell.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIAG"
+          python - "$DIAG" <<'PY'
+          from pathlib import Path
+          import json, os, sys
+          root = Path(sys.argv[1])
+          outcomes = {
+              'inputs': os.environ.get('INPUTS_OUTCOME'),
+              'reconstruct': os.environ.get('RECONSTRUCT_OUTCOME'),
+              'baseline': os.environ.get('BASELINE_OUTCOME'),
+              'duplicate': os.environ.get('DUPLICATE_OUTCOME'),
+              'compile': os.environ.get('COMPILE_OUTCOME'),
+              'shell': os.environ.get('SHELL_OUTCOME'),
+          }
+          exit_codes = {}
+          for path in sorted(root.glob('*.exit_code.txt')):
+              exit_codes[path.stem.removesuffix('.exit_code')] = path.read_text().strip()
+          result = {
+              'status': 'passed' if all(value == 'success' for value in outcomes.values()) else 'failed',
+              'outcomes': outcomes,
+              'exit_codes': exit_codes,
+          }
+          (root / 'diagnostic_result.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-reconstruction-diagnostic
+          path: validation/stage5_v06_full_reconciliation/reconstruction_diagnostic/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce diagnostic result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('validation/stage5_v06_full_reconciliation/reconstruction_diagnostic/diagnostic_result.json').read_text())
+          if result['status'] != 'passed':
+              raise SystemExit(1)
+          PY
