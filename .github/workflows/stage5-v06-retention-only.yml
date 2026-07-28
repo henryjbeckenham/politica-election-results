@@ -1,9 +1,9 @@
 name: Stage 5 v0.6 retention-only extraction
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/stage5-v0-6-retention-only
+      - agent/stage5-v0-6-retention-base
 
 permissions:
   actions: read
