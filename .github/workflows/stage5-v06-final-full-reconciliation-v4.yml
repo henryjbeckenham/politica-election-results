@@ -1,0 +1,151 @@
+name: Stage 5 v0.6 final full reconciliation v4
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage5-v06-full-reconciliation-v4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    services:
+      postgres184:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      RUN_ROOT: ${{ runner.temp }}/stage5_v06
+      TRANSFER_BIN: politica-stage5-v06-7f3c2b9a4e1d
+
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client unzip zip
+
+      - name: Execute exact Stage 5 v0.6 reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUN_ROOT"
+          chmod +x validation/stage5_v06_full_reconciliation/run_workflow.sh
+          validation/stage5_v06_full_reconciliation/run_workflow.sh \
+            > >(tee -a "$RUN_ROOT/operator.log") \
+            2> >(tee -a "$RUN_ROOT/operator.log" >&2)
+
+      - name: Upload exact accepted outputs to fixed checksum-gated temporary transport
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://filebin.net/${TRANSFER_BIN}"
+          final="$RUN_ROOT/evidence/final"
+          files=(
+            "$final/politica_stage5_legislation_sync_v0_6.zip"
+            "$final/politica_stage5_legislation_sync_v0_6.zip.sha256"
+            "$final/politica_stage5_v0_6_full_reconciliation_evidence.zip"
+            "$final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256"
+            "$final/package_result.json"
+          )
+          for file in "${files[@]}"; do
+            test -f "$file"
+            name="$(basename "$file")"
+            curl --fail --show-error --silent \
+              --upload-file "$file" \
+              -H 'cid: Politica-Stage5-v0.6-governed-transfer' \
+              "$base/$name" >/dev/null
+          done
+          mkdir -p "$RUN_ROOT/readback"
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            curl --fail --show-error --silent --location \
+              "$base/$name" -o "$RUN_ROOT/readback/$name"
+            cmp "$file" "$RUN_ROOT/readback/$name"
+          done
+          (cd "$RUN_ROOT/readback" && sha256sum --check politica_stage5_legislation_sync_v0_6.zip.sha256)
+          (cd "$RUN_ROOT/readback" && sha256sum --check politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256)
+          echo STAGE5_V0_6_TEMPORARY_TRANSFER_PASS | tee "$RUN_ROOT/temporary_transfer_pass.txt"
+
+      - name: Upload failure diagnostics to fixed temporary transport
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostic="$RUNNER_TEMP/politica_stage5_v0_6_failure_diagnostic.zip"
+          mkdir -p "$RUN_ROOT"
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "head_sha=$GITHUB_SHA"
+            echo "created_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$RUN_ROOT/failure_context.txt"
+          (cd "$RUN_ROOT" && zip -qr "$diagnostic" .)
+          sha256sum "$diagnostic" > "$diagnostic.sha256"
+          base="https://filebin.net/${TRANSFER_BIN}"
+          for file in "$diagnostic" "$diagnostic.sha256"; do
+            name="$(basename "$file")"
+            curl --fail --show-error --silent \
+              --upload-file "$file" \
+              -H 'cid: Politica-Stage5-v0.6-governed-transfer' \
+              "$base/$name" >/dev/null
+          done
+
+      - name: Upload deterministic v0.6 source package to Actions
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-source-package-v4
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload deterministic v0.6 evidence to Actions
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence-v4
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload diagnostic evidence to Actions
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-diagnostic-failure-evidence-v4
+          path: ${{ runner.temp }}/stage5_v06/
+          compression-level: 6
+          retention-days: 90
+          if-no-files-found: warn
