@@ -1,0 +1,271 @@
+name: Stage 5 Versions OData query matrix
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  versions-query-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EVIDENCE: validation/stage5_versions_matrix/evidence
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Execute bounded Versions query matrix
+        id: matrix
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$EVIDENCE/raw"
+          python - <<'PY' > "$EVIDENCE/stdout.log" 2> "$EVIDENCE/stderr.log"
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import socket
+          import time
+          import traceback
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE'])
+          raw = root / 'raw'
+          base = 'https://api.prod.legislation.gov.au/v1/Versions'
+          approved_host = 'api.prod.legislation.gov.au'
+          user_agent = 'Politica-Stage5-Versions-Query-Matrix/0.1'
+          request_ceiling = 12
+          max_bytes = 4 * 1024 * 1024
+          timeout = 30
+
+          start = '2026-07-23T15:00:00Z'
+          end = '2026-07-26T15:00:00Z'
+          date_filter = f'registeredAt ge {start} and registeredAt le {end}'
+
+          variants = [
+              ('unfiltered_top1', {'$top': '1', '$skip': '0'}),
+              ('unfiltered_select_top1', {'$select': 'registerId,titleId,registeredAt,name', '$top': '1', '$skip': '0'}),
+              ('filter_only', {'$filter': date_filter, '$top': '20', '$skip': '0'}),
+              ('filter_order_registeredAt', {'$filter': date_filter, '$orderby': 'registeredAt asc', '$top': '20', '$skip': '0'}),
+              ('filter_order_registeredAt_registerId', {'$filter': date_filter, '$orderby': 'registeredAt asc,registerId asc', '$top': '20', '$skip': '0'}),
+              ('filter_order_registeredAt_titleId', {'$filter': date_filter, '$orderby': 'registeredAt asc,titleId asc', '$top': '20', '$skip': '0'}),
+              ('filter_order_registeredAt_name', {'$filter': date_filter, '$orderby': 'registeredAt asc,name asc', '$top': '20', '$skip': '0'}),
+              ('unfiltered_order_registerId', {'$orderby': 'registerId asc', '$top': '1', '$skip': '0'}),
+              ('unfiltered_order_titleId', {'$orderby': 'titleId asc', '$top': '1', '$skip': '0'}),
+              ('unfiltered_order_registeredAt', {'$orderby': 'registeredAt asc', '$top': '1', '$skip': '0'}),
+          ]
+
+          def write_json(path: Path, value: object) -> None:
+              path.write_text(json.dumps(value, indent=2, sort_keys=True), encoding='utf-8')
+
+          def parse_json(body: bytes):
+              try:
+                  return json.loads(body.decode('utf-8'))
+              except Exception:
+                  return None
+
+          def get_once(name: str, params: dict[str, str]) -> dict[str, object]:
+              query = urllib.parse.urlencode(params)
+              url = f'{base}?{query}'
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != 'https' or parsed.hostname != approved_host:
+                  raise RuntimeError(f'unapproved URL: {url}')
+              started = datetime.now(timezone.utc)
+              request = urllib.request.Request(
+                  url,
+                  method='GET',
+                  headers={'User-Agent': user_agent, 'Accept': 'application/json'},
+              )
+              status = None
+              headers: dict[str, str] = {}
+              body = b''
+              error_type = None
+              error_message = None
+              try:
+                  with urllib.request.urlopen(request, timeout=timeout) as response:
+                      status = int(response.status)
+                      headers = dict(response.headers.items())
+                      body = response.read(max_bytes + 1)
+              except urllib.error.HTTPError as exc:
+                  status = int(exc.code)
+                  headers = dict(exc.headers.items()) if exc.headers else {}
+                  body = exc.read(max_bytes + 1)
+                  error_type = type(exc).__name__
+                  error_message = str(exc)
+              except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                  error_type = type(exc).__name__
+                  error_message = str(exc)
+              if len(body) > max_bytes:
+                  raise RuntimeError(f'{name} exceeded response-size ceiling')
+
+              body_path = raw / f'{name}.body'
+              headers_path = raw / f'{name}.headers.json'
+              body_path.write_bytes(body)
+              write_json(headers_path, headers)
+              parsed_body = parse_json(body)
+              values = parsed_body.get('value') if isinstance(parsed_body, dict) else None
+              value_count = len(values) if isinstance(values, list) else None
+              sample = values[:3] if isinstance(values, list) else None
+              error_payload = parsed_body if status and status >= 400 else None
+
+              requested_order = params.get('$orderby')
+              order_fields = []
+              if requested_order:
+                  order_fields = [piece.strip().split()[0] for piece in requested_order.split(',')]
+              duplicate_registered_at = None
+              duplicate_order_tuples = None
+              unique_register_ids = None
+              sorted_as_requested = None
+              if isinstance(values, list):
+                  registered = [item.get('registeredAt') for item in values if isinstance(item, dict)]
+                  duplicate_registered_at = len(registered) - len(set(registered))
+                  register_ids = [item.get('registerId') for item in values if isinstance(item, dict)]
+                  unique_register_ids = len(register_ids) == len(set(register_ids)) and all(isinstance(v, str) and v for v in register_ids)
+                  if order_fields:
+                      tuples = [tuple(item.get(field) for field in order_fields) for item in values if isinstance(item, dict)]
+                      duplicate_order_tuples = len(tuples) - len(set(tuples))
+                      try:
+                          sorted_as_requested = tuples == sorted(tuples)
+                      except TypeError:
+                          sorted_as_requested = None
+
+              result = {
+                  'name': name,
+                  'method': 'GET',
+                  'url': url,
+                  'params': params,
+                  'status': status,
+                  'retrieved_at': started.isoformat(),
+                  'elapsed_seconds': (datetime.now(timezone.utc) - started).total_seconds(),
+                  'body_sha256': hashlib.sha256(body).hexdigest(),
+                  'byte_count': len(body),
+                  'content_type': headers.get('Content-Type') or headers.get('content-type'),
+                  'error_type': error_type,
+                  'error_message': error_message,
+                  'error_payload': error_payload,
+                  'json_type': type(parsed_body).__name__ if parsed_body is not None else None,
+                  'json_keys': sorted(parsed_body.keys()) if isinstance(parsed_body, dict) else None,
+                  'odata_count': parsed_body.get('@odata.count') if isinstance(parsed_body, dict) else None,
+                  'value_count': value_count,
+                  'sample': sample,
+                  'requested_order_fields': order_fields,
+                  'duplicate_registered_at_count': duplicate_registered_at,
+                  'duplicate_requested_order_tuple_count': duplicate_order_tuples,
+                  'unique_nonempty_register_ids': unique_register_ids,
+                  'sorted_as_requested': sorted_as_requested,
+                  'body_file': str(body_path),
+                  'headers_file': str(headers_path),
+              }
+              write_json(root / f'{name}.json', result)
+              return result
+
+          matrix: list[dict[str, object]] = []
+          failure = None
+          try:
+              if len(variants) > request_ceiling:
+                  raise RuntimeError('request matrix exceeds ceiling')
+              for name, params in variants:
+                  matrix.append(get_once(name, params))
+                  time.sleep(0.2)
+
+              by_name = {row['name']: row for row in matrix}
+              if by_name['unfiltered_top1']['status'] != 200:
+                  raise RuntimeError('basic Versions collection request did not return HTTP 200')
+
+              filtered_successes = [
+                  row for row in matrix
+                  if str(row['name']).startswith('filter_') and row['status'] == 200
+              ]
+              if not filtered_successes:
+                  raise RuntimeError('no filtered Versions query variant returned HTTP 200')
+
+              priority = [
+                  'filter_order_registeredAt_registerId',
+                  'filter_order_registeredAt_titleId',
+                  'filter_order_registeredAt_name',
+                  'filter_order_registeredAt',
+                  'filter_only',
+              ]
+              selected = next((by_name[name] for name in priority if by_name[name]['status'] == 200), None)
+              recommendation = {
+                  'selected_variant': selected['name'] if selected else None,
+                  'selected_url': selected['url'] if selected else None,
+                  'selected_order_fields': selected['requested_order_fields'] if selected else None,
+                  'selected_value_count': selected['value_count'] if selected else None,
+                  'selected_unique_nonempty_register_ids': selected['unique_nonempty_register_ids'] if selected else None,
+                  'selected_duplicate_registered_at_count': selected['duplicate_registered_at_count'] if selected else None,
+                  'selected_duplicate_requested_order_tuple_count': selected['duplicate_requested_order_tuple_count'] if selected else None,
+                  'classification': (
+                      'candidate_deterministic_composite_order'
+                      if selected and len(selected['requested_order_fields']) >= 2
+                      else 'single_field_or_unordered_requires_additional_pagination_safety_design'
+                  ),
+              }
+              write_json(root / 'recommendation.json', recommendation)
+          except Exception as exc:
+              failure = {
+                  'error_type': type(exc).__name__,
+                  'error': str(exc),
+                  'traceback': traceback.format_exc(),
+              }
+              write_json(root / 'matrix_failure.json', failure)
+              raise
+          finally:
+              write_json(root / 'matrix.json', matrix)
+              (root / 'request_manifest.jsonl').write_text(
+                  ''.join(json.dumps(row, sort_keys=True) + '\n' for row in matrix),
+                  encoding='utf-8',
+              )
+              write_json(root / 'execution_metadata.json', {
+                  'scope': 'bounded_read_only_versions_query_matrix',
+                  'approved_host': approved_host,
+                  'methods': ['GET'],
+                  'request_count': len(matrix),
+                  'request_ceiling': request_ceiling,
+                  'max_concurrency': 1,
+                  'package_executed': False,
+                  'production_target_addressed': False,
+                  'window_start': start,
+                  'window_end': end,
+              })
+          PY
+          rc=$?
+          echo "$rc" > "$EVIDENCE/exit_code.txt"
+          cat "$EVIDENCE/stdout.log" || true
+          cat "$EVIDENCE/stderr.log" >&2 || true
+          exit "$rc"
+
+      - name: Package evidence regardless of outcome
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p "$EVIDENCE" validation/stage5_versions_matrix/final
+          find "$EVIDENCE" -type f ! -name final_sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE/final_sha256.txt"
+          zip -qr validation/stage5_versions_matrix/final/stage5-versions-query-matrix-evidence.zip "$EVIDENCE"
+          sha256sum validation/stage5_versions_matrix/final/stage5-versions-query-matrix-evidence.zip > validation/stage5_versions_matrix/final/stage5-versions-query-matrix-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-versions-query-matrix-evidence
+          path: validation/stage5_versions_matrix/final/
+          if-no-files-found: error
+
+      - name: Enforce matrix outcome after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          test -f "$EVIDENCE/exit_code.txt"
+          test "$(cat "$EVIDENCE/exit_code.txt")" = '0'
