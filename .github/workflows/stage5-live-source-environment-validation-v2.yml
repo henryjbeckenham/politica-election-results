@@ -1,0 +1,303 @@
+name: Stage 5 live source and PostgreSQL validation v2
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_USER: stage5
+          POSTGRES_PASSWORD: stage5_validation_only
+          POSTGRES_DB: stage5_validation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stage5 -d stage5_validation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: stage5
+      PGPASSWORD: stage5_validation_only
+      PGDATABASE: stage5_validation
+      EVIDENCE: validation/stage5_live_v2/evidence
+      BASELINE_OPENAPI_SHA256: 1b56deb31a61a6508e97409f960a6d74a48d32cff4238b4e4a4ef8dfb3db65c1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture exact live source evidence
+        id: source
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$EVIDENCE/raw" "$EVIDENCE/postgres"
+          python - <<'PY' > "$EVIDENCE/source_stdout.log" 2> "$EVIDENCE/source_stderr.log"
+          from __future__ import annotations
+          import base64, hashlib, json, os, socket, time, traceback
+          import urllib.error, urllib.parse, urllib.request
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE'])
+          raw = root / 'raw'
+          base = 'https://api.prod.legislation.gov.au/v1/'
+          openapi_url = 'https://api.prod.legislation.gov.au/swagger/v1/swagger.json'
+          approved_host = 'api.prod.legislation.gov.au'
+          user_agent = 'Politica-Stage5-Legislation-Synchroniser/0.2-source-environment-validation-v2'
+          baseline = os.environ['BASELINE_OPENAPI_SHA256']
+          run_id = 'github-source-environment-v2-' + os.environ.get('GITHUB_RUN_ID', 'unknown')
+          manifest = []
+
+          def write_json(path: Path, value):
+              path.write_text(json.dumps(value, indent=2, sort_keys=True), encoding='utf-8')
+
+          def get_exact(name: str, url: str):
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != 'https' or parsed.hostname != approved_host:
+                  raise RuntimeError(f'unapproved URL {url}')
+              last = None
+              for attempt in range(5):
+                  started = datetime.now(timezone.utc)
+                  req = urllib.request.Request(url, method='GET', headers={'User-Agent': user_agent, 'Accept': 'application/json'})
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          body = response.read(8 * 1024 * 1024 + 1)
+                          status = int(response.status)
+                          headers = dict(response.headers.items())
+                      if len(body) > 8 * 1024 * 1024:
+                          raise RuntimeError('response-size ceiling exceeded')
+                      if status != 200:
+                          raise RuntimeError(f'HTTP {status}')
+                      body_path = raw / f'{name}.body'
+                      header_path = raw / f'{name}.headers.json'
+                      body_path.write_bytes(body)
+                      write_json(header_path, headers)
+                      row = {
+                          'name': name, 'method': 'GET', 'url': url, 'status': status,
+                          'retrieved_at': started.isoformat(), 'attempt': attempt + 1,
+                          'byte_count': len(body), 'sha256': hashlib.sha256(body).hexdigest(),
+                          'body_file': str(body_path), 'headers_file': str(header_path),
+                      }
+                      manifest.append(row)
+                      return row, body, headers
+                  except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                      last = exc
+                      if attempt == 4:
+                          raise
+                      time.sleep(min(2 ** attempt, 8))
+              raise RuntimeError(str(last))
+
+          try:
+              openapi_row, openapi_body, _ = get_exact('contract_openapi', openapi_url)
+              service_row, service_body, _ = get_exact('contract_service', base)
+              openapi = json.loads(openapi_body.decode('utf-8'))
+              try:
+                  service = json.loads(service_body.decode('utf-8'))
+                  service_type = type(service).__name__
+              except json.JSONDecodeError:
+                  service_type = 'non_json'
+
+              paths = openapi.get('paths', {})
+              schemas = openapi.get('components', {}).get('schemas', {})
+              operations = sum(
+                  1 for item in paths.values() if isinstance(item, dict)
+                  for method in item if method.lower() in {'get','post','put','patch','delete','head','options','trace'}
+              )
+              end = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) - timedelta(hours=2)
+              start = end - timedelta(hours=72)
+              iso = lambda dt: dt.isoformat(timespec='seconds').replace('+00:00','Z')
+              entity_summary = {}
+              candidates = []
+              for entity, id_field, date_field in (
+                  ('Titles','id','asMadeRegisteredAt'),
+                  ('Versions','registerId','registeredAt'),
+              ):
+                  query = urllib.parse.urlencode({
+                      '$filter': f'{date_field} ge {iso(start)} and {date_field} le {iso(end)}',
+                      '$orderby': f'{date_field} asc,{id_field} asc', '$top': '20', '$skip': '0',
+                  })
+                  url = f'{base}{entity}?{query}'
+                  first_row, first_body, _ = get_exact(f'{entity.lower()}_first', url)
+                  repeat_row, repeat_body, _ = get_exact(f'{entity.lower()}_repeat', url)
+                  first = json.loads(first_body.decode('utf-8'))
+                  repeat = json.loads(repeat_body.decode('utf-8'))
+                  values = first.get('value') if isinstance(first, dict) else None
+                  repeated_values = repeat.get('value') if isinstance(repeat, dict) else None
+                  if not isinstance(values, list) or not isinstance(repeated_values, list):
+                      raise RuntimeError(f'{entity} response lacks OData value list')
+                  if len(values) > 20:
+                      raise RuntimeError(f'{entity} exceeded page ceiling')
+                  identifiers = []
+                  for item in values:
+                      if not isinstance(item, dict):
+                          raise RuntimeError(f'{entity} item is not an object')
+                      ext = item.get(id_field)
+                      observed = item.get(date_field)
+                      if not isinstance(ext, str) or not ext.strip():
+                          raise RuntimeError(f'{entity} item lacks {id_field}')
+                      if not isinstance(observed, str) or not observed.strip():
+                          raise RuntimeError(f'{entity} item lacks {date_field}')
+                      identifiers.append(ext)
+                      candidates.append({'entity_set': entity, 'external_identifier': ext, 'discovery_value': observed, 'source_capture': f'{entity.lower()}_first', 'source_body_sha256': first_row['sha256']})
+                  if len(identifiers) != len(set(identifiers)):
+                      raise RuntimeError(f'{entity} contains duplicate identifiers')
+                  entity_summary[entity] = {
+                      'count': len(values), 'identifier_field': id_field, 'discovery_field': date_field,
+                      'identifiers': identifiers, 'request_url': url,
+                      'first_sha256': first_row['sha256'], 'repeat_sha256': repeat_row['sha256'],
+                      'immediate_repeat_identical': first_body == repeat_body,
+                  }
+
+              (root / 'request_manifest.jsonl').write_text(''.join(json.dumps(x, sort_keys=True) + '\n' for x in manifest), encoding='utf-8')
+              write_json(root / 'candidates.json', candidates)
+              summary = {
+                  'run_id': run_id,
+                  'scope': 'source_and_environment_only_not_v0_2_package_execution',
+                  'package_executed': False, 'production_target_addressed': False,
+                  'approved_host': approved_host, 'methods': ['GET'], 'request_count': len(manifest),
+                  'request_ceiling': 64, 'max_concurrency': 1,
+                  'openapi_exact_sha256': openapi_row['sha256'], 'service_exact_sha256': service_row['sha256'],
+                  'stage4_openapi_sha256': baseline, 'openapi_hash_matches_stage4': openapi_row['sha256'] == baseline,
+                  'openapi_path_count': len(paths), 'openapi_schema_count': len(schemas), 'openapi_operation_count': operations,
+                  'service_document_type': service_type, 'window_start': iso(start), 'window_end': iso(end),
+                  'entities': entity_summary, 'candidate_count': len(candidates),
+              }
+              write_json(root / 'source_summary.json', summary)
+
+              def lit(value: str):
+                  return "'" + value.replace("'", "''") + "'"
+
+              setup = r'''\set ON_ERROR_STOP on
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          DROP SCHEMA IF EXISTS stage5_validation CASCADE;
+          CREATE SCHEMA stage5_validation;
+          CREATE TABLE stage5_validation.sync_run(run_id text PRIMARY KEY,status text NOT NULL,package_executed boolean NOT NULL,configuration_hash text NOT NULL,contract_hash text NOT NULL,window_start timestamptz NOT NULL,window_end timestamptz NOT NULL,request_count integer NOT NULL,candidate_count integer NOT NULL);
+          CREATE TABLE stage5_validation.raw_capture(capture_name text PRIMARY KEY,run_id text NOT NULL REFERENCES stage5_validation.sync_run,entity_set text NOT NULL,request_url text NOT NULL,status_code integer NOT NULL CHECK(status_code=200),retrieved_at timestamptz NOT NULL,headers jsonb NOT NULL,body bytea NOT NULL,body_sha256 text NOT NULL CHECK(length(body_sha256)=64),byte_count integer NOT NULL CHECK(octet_length(body)=byte_count));
+          CREATE TABLE stage5_validation.candidate(entity_set text NOT NULL,external_identifier text NOT NULL,discovery_value timestamptz NOT NULL,source_capture_name text NOT NULL REFERENCES stage5_validation.raw_capture,source_body_sha256 text NOT NULL,PRIMARY KEY(entity_set,external_identifier));
+          CREATE TABLE stage5_validation.checkpoint(run_id text NOT NULL REFERENCES stage5_validation.sync_run,entity_set text NOT NULL,cursor integer NOT NULL,page_complete boolean NOT NULL,candidate_count integer NOT NULL,PRIMARY KEY(run_id,entity_set));
+          CREATE TABLE stage5_validation.watermark(run_id text NOT NULL REFERENCES stage5_validation.sync_run,entity_set text NOT NULL,coverage_start timestamptz NOT NULL,coverage_end timestamptz NOT NULL,kind text NOT NULL CHECK(kind='completed_coverage_window'),PRIMARY KEY(run_id,entity_set),CHECK(coverage_end>=coverage_start));
+          '''
+              (root / 'postgres' / 'setup.sql').write_text(setup, encoding='utf-8')
+              config_hash = hashlib.sha256(b'GET:approved-host:72h:top20:concurrency1').hexdigest()
+              sql = [r'\set ON_ERROR_STOP on', 'BEGIN;']
+              sql.append('INSERT INTO stage5_validation.sync_run VALUES (' + ','.join([lit(run_id),lit('succeeded'),'false',lit(config_hash),lit(openapi_row['sha256']),lit(iso(start))+'::timestamptz',lit(iso(end))+'::timestamptz',str(len(manifest)),str(len(candidates))]) + ') ON CONFLICT DO NOTHING;')
+              for row in manifest:
+                  name = row['name']
+                  entity = 'Contract' if name.startswith('contract_') else ('Titles' if name.startswith('titles_') else 'Versions')
+                  body = Path(row['body_file']).read_bytes()
+                  headers = json.loads(Path(row['headers_file']).read_text(encoding='utf-8'))
+                  sql.append('INSERT INTO stage5_validation.raw_capture VALUES (' + ','.join([
+                      lit(name),lit(run_id),lit(entity),lit(row['url']),str(row['status']),lit(row['retrieved_at'])+'::timestamptz',lit(json.dumps(headers,sort_keys=True))+'::jsonb',"decode("+lit(base64.b64encode(body).decode('ascii'))+",'base64')",lit(row['sha256']),str(row['byte_count'])
+                  ]) + ') ON CONFLICT DO NOTHING;')
+              for row in candidates:
+                  sql.append('INSERT INTO stage5_validation.candidate VALUES (' + ','.join([lit(row['entity_set']),lit(row['external_identifier']),lit(row['discovery_value'])+'::timestamptz',lit(row['source_capture']),lit(row['source_body_sha256'])]) + ') ON CONFLICT DO NOTHING;')
+              for entity in ('Titles','Versions'):
+                  count = int(entity_summary[entity]['count'])
+                  sql.append('INSERT INTO stage5_validation.checkpoint VALUES ('+','.join([lit(run_id),lit(entity),str(count),'true',str(count)])+') ON CONFLICT DO NOTHING;')
+              for entity in ('Titles','Versions'):
+                  sql.append('INSERT INTO stage5_validation.watermark VALUES ('+','.join([lit(run_id),lit(entity),lit(iso(start))+'::timestamptz',lit(iso(end))+'::timestamptz',lit('completed_coverage_window')])+') ON CONFLICT DO NOTHING;')
+              sql += ['COMMIT;','']
+              (root / 'postgres' / 'load.sql').write_text('\n'.join(sql), encoding='utf-8')
+              assertions = f'''\\set ON_ERROR_STOP on
+          DO $$ DECLARE v integer; b integer; BEGIN
+          IF current_setting('server_version_num')::integer <> 180004 THEN RAISE EXCEPTION 'wrong PostgreSQL version'; END IF;
+          SELECT count(*) INTO v FROM stage5_validation.raw_capture; IF v<>6 THEN RAISE EXCEPTION 'raw count %',v; END IF;
+          SELECT count(*) INTO b FROM stage5_validation.raw_capture WHERE encode(digest(body,'sha256'),'hex')<>body_sha256; IF b<>0 THEN RAISE EXCEPTION 'bad hashes %',b; END IF;
+          SELECT count(*) INTO v FROM stage5_validation.candidate; IF v<>{len(candidates)} THEN RAISE EXCEPTION 'candidate count %',v; END IF;
+          SELECT count(*) INTO v FROM stage5_validation.checkpoint WHERE page_complete; IF v<>2 THEN RAISE EXCEPTION 'checkpoint count %',v; END IF;
+          SELECT count(*) INTO v FROM stage5_validation.watermark; IF v<>2 THEN RAISE EXCEPTION 'watermark count %',v; END IF;
+          IF (SELECT package_executed FROM stage5_validation.sync_run WHERE run_id={lit(run_id)}) THEN RAISE EXCEPTION 'false package claim'; END IF;
+          END $$;
+          SELECT 'STAGE5_SOURCE_ENVIRONMENT_POSTGRES_PASS';
+          '''
+              (root / 'postgres' / 'assert.sql').write_text(assertions, encoding='utf-8')
+              write_json(root / 'source_status.json', {'status':'passed','exit_code':0})
+          except Exception as exc:
+              failure = {'status':'failed','error_type':type(exc).__name__,'error':str(exc),'traceback':traceback.format_exc(),'retained_request_count':len(manifest)}
+              write_json(root / 'source_failure.json', failure)
+              if manifest:
+                  (root / 'request_manifest.jsonl').write_text(''.join(json.dumps(x, sort_keys=True) + '\n' for x in manifest), encoding='utf-8')
+              raise
+          PY
+          rc=$?
+          echo "$rc" > "$EVIDENCE/source_exit_code.txt"
+          cat "$EVIDENCE/source_stdout.log" || true
+          cat "$EVIDENCE/source_stderr.log" >&2 || true
+          exit "$rc"
+
+      - name: Execute disposable PostgreSQL 18.4 validation
+        id: postgres
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$EVIDENCE/postgres"
+          {
+            command -v psql
+            psql -X -Atqc 'SHOW server_version_num' | tee "$EVIDENCE/postgres/server_version_num.txt"
+            test "$(cat "$EVIDENCE/postgres/server_version_num.txt")" = '180004'
+            test -f "$EVIDENCE/postgres/setup.sql"
+            psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCE/postgres/setup.sql"
+            psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCE/postgres/load.sql"
+            psql -X -Atqc "SELECT (SELECT count(*) FROM stage5_validation.sync_run),(SELECT count(*) FROM stage5_validation.raw_capture),(SELECT count(*) FROM stage5_validation.candidate),(SELECT count(*) FROM stage5_validation.checkpoint),(SELECT count(*) FROM stage5_validation.watermark)" | tee "$EVIDENCE/postgres/counts_first.txt"
+            psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCE/postgres/load.sql"
+            psql -X -Atqc "SELECT (SELECT count(*) FROM stage5_validation.sync_run),(SELECT count(*) FROM stage5_validation.raw_capture),(SELECT count(*) FROM stage5_validation.candidate),(SELECT count(*) FROM stage5_validation.checkpoint),(SELECT count(*) FROM stage5_validation.watermark)" | tee "$EVIDENCE/postgres/counts_repeat.txt"
+            cmp "$EVIDENCE/postgres/counts_first.txt" "$EVIDENCE/postgres/counts_repeat.txt"
+            psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCE/postgres/assert.sql" | tee "$EVIDENCE/postgres/assert_stdout.log"
+            grep -q STAGE5_SOURCE_ENVIRONMENT_POSTGRES_PASS "$EVIDENCE/postgres/assert_stdout.log"
+          } > "$EVIDENCE/postgres/step_stdout.log" 2> "$EVIDENCE/postgres/step_stderr.log"
+          rc=$?
+          echo "$rc" > "$EVIDENCE/postgres_exit_code.txt"
+          cat "$EVIDENCE/postgres/step_stdout.log" || true
+          cat "$EVIDENCE/postgres/step_stderr.log" >&2 || true
+          exit "$rc"
+
+      - name: Package evidence regardless of outcome
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p "$EVIDENCE" validation/stage5_live_v2/final
+          {
+            echo "workflow_run_id=$GITHUB_RUN_ID"
+            echo "workflow_run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "commit=$GITHUB_SHA"
+            echo "package_executed=false"
+            echo "production_target_addressed=false"
+            echo "source_step_outcome=${{ steps.source.outcome }}"
+            echo "postgres_step_outcome=${{ steps.postgres.outcome }}"
+          } > "$EVIDENCE/execution_metadata.txt"
+          find "$EVIDENCE" -type f ! -name final_sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE/final_sha256.txt"
+          zip -qr validation/stage5_live_v2/final/stage5-live-source-environment-v2-evidence.zip "$EVIDENCE"
+          sha256sum validation/stage5_live_v2/final/stage5-live-source-environment-v2-evidence.zip > validation/stage5_live_v2/final/stage5-live-source-environment-v2-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-live-source-environment-v2-evidence
+          path: validation/stage5_live_v2/final/
+          if-no-files-found: error
+
+      - name: Enforce validation outcome after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          test -f "$EVIDENCE/source_exit_code.txt"
+          test -f "$EVIDENCE/postgres_exit_code.txt"
+          test "$(cat "$EVIDENCE/source_exit_code.txt")" = '0'
+          test "$(cat "$EVIDENCE/postgres_exit_code.txt")" = '0'
