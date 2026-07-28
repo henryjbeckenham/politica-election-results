@@ -1,0 +1,48 @@
+name: Stage 5 v0.5 fragment transfer diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Measure retained transfer fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v05_canonical_integration/source/v05_fragments
+          OUT=validation/stage5_v05_fragment_diagnostic
+          mkdir -p "$OUT"
+          python - "$ROOT" "$OUT/result.json" <<'PY'
+          from pathlib import Path
+          import hashlib, json, sys
+          root = Path(sys.argv[1])
+          out = Path(sys.argv[2])
+          rows = []
+          for path in sorted(p for p in root.iterdir() if p.name != 'manifest.json'):
+              body = path.read_bytes()
+              rows.append({
+                  'path': path.name,
+                  'byte_count': len(body),
+                  'base64_char_count_after_strip': len(body.decode('ascii').strip()),
+                  'sha256': hashlib.sha256(body).hexdigest(),
+                  'ends_with_newline': body.endswith(b'\n'),
+              })
+          manifest = json.loads((root / 'manifest.json').read_text())
+          result = {'rows': rows, 'manifest': manifest}
+          out.write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage5-v05-fragment-diagnostic
+          path: validation/stage5_v05_fragment_diagnostic/result.json
+          if-no-files-found: error
