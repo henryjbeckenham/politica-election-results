@@ -1,0 +1,56 @@
+{
+  "archive": {
+    "base64_char_count": 33000,
+    "chunk_paths": [
+      "chunks/chunk_00.txt",
+      "chunks/chunk_01.txt",
+      "chunks/chunk_02.txt",
+      "chunks/chunk_03.txt",
+      "chunks/chunk_04.txt",
+      "chunks/chunk_05.txt",
+      "chunks/chunk_06.txt"
+    ],
+    "gzip_byte_count": 24748,
+    "gzip_sha256": "584b7987351ed619902fccb08fc00c66d550676038f101586639108a0d9653a8",
+    "tar_byte_count": 133120,
+    "tar_sha256": "939b29235445207b4e3233d22330ddbd8caeb38e852d0c87bdf60489c9188176"
+  },
+  "files": {
+    "STAGE5_ACCEPTANCE_ASSESSMENT_V0_5.json": {
+      "byte_count": 6887,
+      "mode": "0644",
+      "sha256": "071b12e373d35926af86c157c26329e62dc28df520f4582924888929f89c4eb0"
+    },
+    "STAGE5_REQUIREMENTS_TRACEABILITY_V0_5.json": {
+      "byte_count": 18137,
+      "mode": "0644",
+      "sha256": "ec836c54c3132ce17aea2f9e0537f3be65bfc247366132fd066db4ce8246fb4b"
+    },
+    "build_deterministic_zip.py": {
+      "byte_count": 1857,
+      "mode": "0644",
+      "sha256": "b0536aadb8f4db7519504d355584b65800515734f04a93d0fd6737f68978f32e"
+    },
+    "finalize_reconciliation.py": {
+      "byte_count": 12141,
+      "mode": "0644",
+      "sha256": "9c66ead647e28c949dc8f50cfef9df08ab2d751f5214afed123881d36066a0d1"
+    },
+    "full_reconciliation.py": {
+      "byte_count": 63625,
+      "mode": "0644",
+      "sha256": "55e5e6b287514fe81877e54b5da1fa1b3c0b794e04d0e378fbd80cf59a98b740"
+    },
+    "run_full_reconciliation.sh": {
+      "byte_count": 8539,
+      "mode": "0755",
+      "sha256": "a8206c5d350060e48397fc9d492696962ca71b8b2800632a023a57c994cb9d32"
+    },
+    "test_full_reconciliation.py": {
+      "byte_count": 7164,
+      "mode": "0644",
+      "sha256": "b88579e2b191f6446014cf39993c5751a419ad49af71860dae0349c9d084c9b1"
+    }
+  },
+  "version": 1
+}
