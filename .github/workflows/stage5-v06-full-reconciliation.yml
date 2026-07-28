@@ -1,0 +1,107 @@
+name: Stage 5 v0.6 full Federal Register reconciliation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      SOURCE: validation/stage5_v05_canonical_integration/source
+      V05_ROOT: validation/stage5_v05_final_acceptance
+      BASELINE: validation/stage5_v06_full_reconciliation
+      EVIDENCE: validation/stage5_v06_full_reconciliation/evidence
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Reconstruct and verify governed v0.6 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          python "$ROOT/reconstruct_sources.py" \
+            --source "$ROOT/source" \
+            --output "$ROOT" \
+            --report "$ROOT/source_reconstruction.json"
+          python -m py_compile \
+            "$ROOT/full_reconciliation.py" \
+            "$ROOT/test_full_reconciliation.py" \
+            "$ROOT/finalize_reconciliation.py" \
+            "$ROOT/build_deterministic_zip.py"
+          bash -n "$ROOT/run_full_reconciliation.sh"
+
+      - name: Execute Stage 5 v0.6 full reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x validation/stage5_v06_full_reconciliation/run_full_reconciliation.sh
+          validation/stage5_v06_full_reconciliation/run_full_reconciliation.sh
+
+      - name: Build deterministic evidence archives
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          mkdir -p "$ROOT/final"
+          if test -d "$ROOT/evidence" && test -f "$ROOT/build_deterministic_zip.py"; then
+            cp "$ROOT/source_reconstruction.json" "$ROOT/evidence/source_reconstruction.json"
+            python "$ROOT/build_deterministic_zip.py" \
+              --source "$ROOT/evidence" \
+              --output "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+              --prefix stage5_v0_6_full_reconciliation_evidence \
+              > "$ROOT/final/evidence_archive_manifest.json"
+            python "$ROOT/build_deterministic_zip.py" \
+              --source "$ROOT/evidence" \
+              --output "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip" \
+              --prefix stage5_v0_6_full_reconciliation_evidence \
+              > "$ROOT/final/evidence_archive_repeat_manifest.json"
+            cmp "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+                "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip"
+            rm "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip"
+            sha256sum "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+              > "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256"
+            echo STAGE5_V0_6_DETERMINISTIC_EVIDENCE_PACKAGE_PASS \
+              > "$ROOT/final/deterministic_package_marker.txt"
+          else
+            echo "No governed evidence directory was produced" > "$ROOT/final/no_evidence.txt"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence
+          path: validation/stage5_v06_full_reconciliation/final/
+          if-no-files-found: error
+          retention-days: 90
