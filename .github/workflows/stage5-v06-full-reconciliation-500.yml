@@ -1,0 +1,143 @@
+name: Stage 5 v0.6 500-row full Federal Register reconciliation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage5-v06-500-row-full-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      SOURCE: validation/stage5_v05_canonical_integration/source
+      V05_ROOT: validation/stage5_v05_final_acceptance
+      BASELINE: validation/stage5_v06_full_reconciliation
+      EVIDENCE: validation/stage5_v06_full_reconciliation/evidence
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Reconstruct and checksum-gate governed v0.6 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          command -v patch >/dev/null
+          python "$ROOT/reconstruct_sources.py" \
+            --source "$ROOT/source" \
+            --output "$ROOT" \
+            --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' \
+            '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' \
+            "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' \
+            '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          printf '%s  %s\n' \
+            'ec420a6ee0025aea6cb4573b886c62d4fe74d9f1262f9a4b01dc042cbaa3476b' \
+            "$ROOT/apply_governed_page_size_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_page_size_patch.py"
+          printf '%s  %s\n' \
+            'b857b974feac4f4f3b8660aecdb15f8464a4f017f39e871869de853b4e93e645' \
+            "$ROOT/apply_governed_page_size_test_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_page_size_test_patch.py"
+          python -m py_compile \
+            "$ROOT/full_reconciliation.py" \
+            "$ROOT/test_full_reconciliation.py" \
+            "$ROOT/finalize_reconciliation.py" \
+            "$ROOT/build_deterministic_zip.py" \
+            "$ROOT/apply_governed_baseline_correction.py" \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" \
+            "$ROOT/apply_governed_page_size_patch.py" \
+            "$ROOT/apply_governed_page_size_test_patch.py"
+          bash -n "$ROOT/run_full_reconciliation.sh"
+          grep -qx 'PAGE_SIZE = 500' <(grep '^PAGE_SIZE =' "$ROOT/full_reconciliation.py")
+          grep -qx 'REQUEST_CEILING = 3_000' <(grep '^REQUEST_CEILING =' "$ROOT/full_reconciliation.py")
+          grep -qx 'RULESET_VERSION = "stage5-v0.6-full-reconciliation-2"' <(grep '^RULESET_VERSION =' "$ROOT/full_reconciliation.py")
+
+      - name: Execute exact PostgreSQL and full source-wide reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          chmod +x "$ROOT/run_full_reconciliation.sh"
+          "$ROOT/run_full_reconciliation.sh"
+
+      - name: Build deterministic evidence archives
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          mkdir -p "$ROOT/final"
+          if test -d "$ROOT/evidence" && test -f "$ROOT/build_deterministic_zip.py"; then
+            for name in \
+              source_reconstruction.json \
+              governed_baseline_correction.json \
+              governed_duplicate_observation_patch.json \
+              governed_page_size_patch.json \
+              governed_page_size_test_patch.json; do
+              if test -f "$ROOT/$name"; then cp "$ROOT/$name" "$ROOT/evidence/$name"; fi
+            done
+            python "$ROOT/build_deterministic_zip.py" \
+              --source "$ROOT/evidence" \
+              --output "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+              --prefix stage5_v0_6_full_reconciliation_evidence \
+              > "$ROOT/final/evidence_archive_manifest.json"
+            python "$ROOT/build_deterministic_zip.py" \
+              --source "$ROOT/evidence" \
+              --output "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip" \
+              --prefix stage5_v0_6_full_reconciliation_evidence \
+              > "$ROOT/final/evidence_archive_repeat_manifest.json"
+            cmp "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+                "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip"
+            rm "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence_repeat.zip"
+            sha256sum "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+              > "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256"
+            echo STAGE5_V0_6_DETERMINISTIC_EVIDENCE_PACKAGE_PASS \
+              > "$ROOT/final/deterministic_package_marker.txt"
+          else
+            echo "No governed evidence directory was produced" > "$ROOT/final/no_evidence.txt"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: politica-stage5-v0-6-500-row-full-reconciliation-evidence
+          path: validation/stage5_v06_full_reconciliation/final/
+          if-no-files-found: error
+          retention-days: 90
