@@ -1,0 +1,77 @@
+{
+  "approved_host": "api.prod.legislation.gov.au",
+  "api_base": "https://api.prod.legislation.gov.au/v1",
+  "contract_openapi_url": "https://api.prod.legislation.gov.au/swagger/v1/swagger.json",
+  "contract_service_url": "https://api.prod.legislation.gov.au/v1/",
+  "version": "stage5-v0.6-reconciliation-config-1",
+  "ruleset_version": "stage5-v0.6-reconciliation-rules-1",
+  "page_size": 500,
+  "partition_page_span": 100,
+  "request_ceiling": 3000,
+  "response_size_ceiling_bytes": 8388608,
+  "timeout_seconds": 45,
+  "retry_attempts": 3,
+  "retry_backoff_seconds": 1.0,
+  "inter_request_delay_seconds": 0.05,
+  "concurrency": 1,
+  "disappearance_confirmation_threshold": 2,
+  "collections": {
+    "Titles": {
+      "endpoint": "/Titles",
+      "count_endpoint": "/Titles/$count",
+      "canonical_family": "legislation_title",
+      "external_identifier_field": "id",
+      "preferred_identity_fields": ["id"],
+      "preferred_order_fields": ["id"]
+    },
+    "Versions": {
+      "endpoint": "/Versions",
+      "count_endpoint": "/Versions/$count",
+      "canonical_family": "legislation_version",
+      "external_identifier_field": "registerId",
+      "preferred_identity_fields": ["registerId", "titleId", "start", "end", "retrospectiveStart", "retrospectiveEnd", "rectificationVersionNumber", "versionNumber", "registeredAt"],
+      "preferred_order_fields": ["registerId", "titleId", "start", "retrospectiveStart", "rectificationVersionNumber"]
+    },
+    "Documents": {
+      "endpoint": "/Documents",
+      "count_endpoint": "/Documents/$count",
+      "canonical_family": "legislation_document_observation",
+      "external_identifier_field": null,
+      "preferred_identity_fields": ["registerId", "titleId", "start", "end", "retrospectiveStart", "retrospectiveEnd", "rectificationVersionNumber", "type", "uniqueTypeNumber", "volumeNumber", "format", "language", "pages", "authorised"],
+      "preferred_order_fields": ["titleId", "start", "type", "format", "uniqueTypeNumber"]
+    },
+    "Departments": {
+      "endpoint": "/Departments",
+      "count_endpoint": "/Departments/$count",
+      "canonical_family": "department",
+      "external_identifier_field": "id",
+      "preferred_identity_fields": ["id"],
+      "preferred_order_fields": ["id"]
+    },
+    "TextApplies": {
+      "endpoint": "/TextApplies",
+      "count_endpoint": "/TextApplies/$count",
+      "canonical_family": "text_applies_observation",
+      "external_identifier_field": null,
+      "preferred_identity_fields": ["type", "titleId", "titleName", "provisions"],
+      "preferred_order_fields": ["titleId", "type", "titleName"]
+    }
+  },
+  "accepted_v05": {
+    "drive_file_id": "1smCZOC03WqqQxsPAO4Sg4OYsX8F-FQq_",
+    "byte_count": 270366,
+    "sha256": "c0028534de83645ba102b9a211754203db1c333942458552fbc7032b7d4781e9",
+    "stage3_ddl_sha256": "daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc",
+    "stage3_ddl_bytes": 118336,
+    "canonical_fixture_sha256": "d051ffaa3fb53686fe44a2d39d41df20a8fbe2281cd17cd5337fb03b7c3336ed",
+    "canonical_fixture_bytes": 57644,
+    "canonical_assertions_sha256": "acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7",
+    "canonical_assertions_bytes": 13044,
+    "semantic_snapshot_sha256": "01a9b22c427ab238b1db88278f6bfffa9ee862799c5528deb0386419a38d1910"
+  },
+  "canonical_representative_identifiers": {
+    "title:F2016L01916": {"collection": "Titles", "external_identifier": "F2016L01916", "canonical_family": "legislation_title"},
+    "version:F2026C00596": {"collection": "Versions", "external_identifier": "F2026C00596", "canonical_family": "legislation_version"},
+    "department:O-000882": {"collection": "Departments", "external_identifier": "O-000882", "canonical_family": "department"}
+  }
+}
