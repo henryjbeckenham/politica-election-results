@@ -1,8 +1,6 @@
 name: Stage 5 v0.6 full Federal Register reconciliation
 
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
