@@ -19,9 +19,71 @@ cat "$SOURCE/stage3_fragments/stage3.0" \
   | gzip -d \
   > "$EVIDENCE/sql/stage3_full_domain_v0_10b.sql"
 
+python - "$SOURCE/v05_fragments" "$EVIDENCE/sql" <<'PYFRAG'
+from pathlib import Path
+import base64
+import gzip
+import hashlib
+import json
+import sys
+
+root = Path(sys.argv[1])
+out = Path(sys.argv[2])
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+outputs = {
+    'fixture': 'stage5_canonical_live_fixture.sql',
+    'assertions': 'stage5_canonical_live_assertions.sql',
+}
+report = {'manifest_version': manifest['version'], 'files': {}}
+for key, output_name in outputs.items():
+    spec = manifest['files'][key]
+    parts = []
+    rows = []
+    for expected in spec['chunks']:
+        path = root / expected['path']
+        body = path.read_bytes()
+        actual_sha = hashlib.sha256(body).hexdigest()
+        actual_chars = len(body.decode('ascii').strip())
+        passed = (
+            len(body) == expected['byte_count']
+            and actual_sha == expected['sha256']
+            and actual_chars == expected['base64_char_count']
+        )
+        rows.append({
+            'path': expected['path'],
+            'expected_byte_count': expected['byte_count'],
+            'actual_byte_count': len(body),
+            'expected_sha256': expected['sha256'],
+            'actual_sha256': actual_sha,
+            'expected_base64_char_count': expected['base64_char_count'],
+            'actual_base64_char_count': actual_chars,
+            'passed': passed,
+        })
+        if not passed:
+            raise SystemExit(f'fragment mismatch: {expected["path"]}')
+        parts.append(body.decode('ascii').strip())
+    encoded = ''.join(parts)
+    if len(encoded) != spec['combined_base64_char_count']:
+        raise SystemExit(f'combined base64 length mismatch: {key}')
+    decoded = gzip.decompress(base64.b64decode(encoded, validate=True))
+    actual_decoded_sha = hashlib.sha256(decoded).hexdigest()
+    if len(decoded) != spec['decoded_byte_count'] or actual_decoded_sha != spec['decoded_sha256']:
+        raise SystemExit(f'decoded governed file mismatch: {output_name}')
+    (out / output_name).write_bytes(decoded)
+    report['files'][key] = {
+        'output': output_name,
+        'chunks': rows,
+        'combined_base64_char_count': len(encoded),
+        'decoded_byte_count': len(decoded),
+        'decoded_sha256': actual_decoded_sha,
+        'passed': True,
+    }
+(out.parent / 'v05_fragment_reconstruction.json').write_text(
+    json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+)
+PYFRAG
+
 for name in \
-  stage5_canonical_live_fixture.sql \
-  stage5_canonical_live_assertions.sql \
   negative_missing_external_identifier_evidence.sql \
   negative_generic_external_identifier_evidence.sql \
   negative_invented_commencement_event.sql; do
