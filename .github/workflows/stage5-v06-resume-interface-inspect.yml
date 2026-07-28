@@ -1,0 +1,55 @@
+name: Stage 5 v0.6 resume interface inspection
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct governed v0.6 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          python "$ROOT/reconstruct_sources.py" \
+            --source "$ROOT/source" \
+            --output "$ROOT" \
+            --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' \
+            '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' \
+            "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' \
+            '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+
+      - name: Capture resume interface
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          OUT="$ROOT/resume_interface_inspection"
+          mkdir -p "$OUT"
+          python "$ROOT/full_reconciliation.py" --help > "$OUT/full_reconciliation_help.txt" 2>&1 || true
+          python "$ROOT/full_reconciliation.py" live --help > "$OUT/live_help.txt" 2>&1 || true
+          python "$ROOT/full_reconciliation.py" replay --help > "$OUT/replay_help.txt" 2>&1 || true
+          sed -n '1,320p' "$ROOT/run_full_reconciliation.sh" > "$OUT/run_full_reconciliation.sh.txt"
+          grep -nE 'add_argument|add_subparsers|checkpoint|resume|collection|start|end|page|partition|evidence' "$ROOT/full_reconciliation.py" > "$OUT/relevant_source_lines.txt" || true
+          sha256sum "$ROOT/full_reconciliation.py" "$ROOT/run_full_reconciliation.sh" > "$OUT/runtime_sha256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage5-v06-resume-interface-inspection
+          path: validation/stage5_v06_full_reconciliation/resume_interface_inspection/
+          if-no-files-found: error
+          retention-days: 90
