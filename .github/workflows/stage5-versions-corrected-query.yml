@@ -1,0 +1,240 @@
+name: Stage 5 corrected Versions query validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-corrected-versions-query:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EVIDENCE: validation/stage5_versions_corrected/evidence
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate corrected timestamp syntax and deterministic ordering
+        id: validate
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$EVIDENCE/raw"
+          python - <<'PY' > "$EVIDENCE/stdout.log" 2> "$EVIDENCE/stderr.log"
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import socket
+          import time
+          import traceback
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE'])
+          raw = root / 'raw'
+          endpoint = 'https://api.prod.legislation.gov.au/v1/Versions'
+          approved_host = 'api.prod.legislation.gov.au'
+          user_agent = 'Politica-Stage5-Corrected-Versions-Query/0.1'
+          timeout = 30
+          max_bytes = 4 * 1024 * 1024
+          request_ceiling = 8
+
+          start_plain = '2026-07-23T15:00:00'
+          end_plain = '2026-07-26T15:00:00'
+          start_fractional = '2026-07-23T15:00:00.0000000'
+          end_fractional = '2026-07-26T15:00:00.0000000'
+
+          variants = [
+              ('plain_filter_only', {'$filter': f'registeredAt ge {start_plain} and registeredAt le {end_plain}', '$top': '20', '$skip': '0'}),
+              ('plain_order_registeredAt', {'$filter': f'registeredAt ge {start_plain} and registeredAt le {end_plain}', '$orderby': 'registeredAt asc', '$top': '20', '$skip': '0'}),
+              ('plain_order_registeredAt_registerId_first', {'$filter': f'registeredAt ge {start_plain} and registeredAt le {end_plain}', '$orderby': 'registeredAt asc,registerId asc', '$top': '20', '$skip': '0'}),
+              ('plain_order_registeredAt_registerId_repeat', {'$filter': f'registeredAt ge {start_plain} and registeredAt le {end_plain}', '$orderby': 'registeredAt asc,registerId asc', '$top': '20', '$skip': '0'}),
+              ('plain_order_registeredAt_titleId', {'$filter': f'registeredAt ge {start_plain} and registeredAt le {end_plain}', '$orderby': 'registeredAt asc,titleId asc', '$top': '20', '$skip': '0'}),
+              ('fractional_order_registeredAt_registerId', {'$filter': f'registeredAt ge {start_fractional} and registeredAt le {end_fractional}', '$orderby': 'registeredAt asc,registerId asc', '$top': '20', '$skip': '0'}),
+          ]
+
+          def write_json(path: Path, value: object) -> None:
+              path.write_text(json.dumps(value, indent=2, sort_keys=True), encoding='utf-8')
+
+          def get_once(name: str, params: dict[str, str]) -> dict[str, object]:
+              url = endpoint + '?' + urllib.parse.urlencode(params)
+              parsed_url = urllib.parse.urlparse(url)
+              if parsed_url.scheme != 'https' or parsed_url.hostname != approved_host:
+                  raise RuntimeError(f'unapproved URL {url}')
+              req = urllib.request.Request(url, method='GET', headers={'User-Agent': user_agent, 'Accept': 'application/json'})
+              started = datetime.now(timezone.utc)
+              status = None
+              headers = {}
+              body = b''
+              error = None
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as response:
+                      status = int(response.status)
+                      headers = dict(response.headers.items())
+                      body = response.read(max_bytes + 1)
+              except urllib.error.HTTPError as exc:
+                  status = int(exc.code)
+                  headers = dict(exc.headers.items()) if exc.headers else {}
+                  body = exc.read(max_bytes + 1)
+                  error = {'type': type(exc).__name__, 'message': str(exc)}
+              except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                  error = {'type': type(exc).__name__, 'message': str(exc)}
+              if len(body) > max_bytes:
+                  raise RuntimeError(f'{name} exceeded response-size ceiling')
+
+              body_path = raw / f'{name}.body'
+              headers_path = raw / f'{name}.headers.json'
+              body_path.write_bytes(body)
+              write_json(headers_path, headers)
+              try:
+                  parsed = json.loads(body.decode('utf-8'))
+              except Exception:
+                  parsed = None
+              values = parsed.get('value') if isinstance(parsed, dict) else None
+              if isinstance(values, list):
+                  tuples = [
+                      (item.get('registeredAt'), item.get('registerId'))
+                      for item in values if isinstance(item, dict)
+                  ]
+                  title_tuples = [
+                      (item.get('registeredAt'), item.get('titleId'))
+                      for item in values if isinstance(item, dict)
+                  ]
+                  identifiers = [item.get('registerId') for item in values if isinstance(item, dict)]
+                  registered = [item.get('registeredAt') for item in values if isinstance(item, dict)]
+              else:
+                  tuples = []
+                  title_tuples = []
+                  identifiers = []
+                  registered = []
+
+              result = {
+                  'name': name,
+                  'method': 'GET',
+                  'url': url,
+                  'params': params,
+                  'status': status,
+                  'retrieved_at': started.isoformat(),
+                  'elapsed_seconds': (datetime.now(timezone.utc) - started).total_seconds(),
+                  'body_sha256': hashlib.sha256(body).hexdigest(),
+                  'byte_count': len(body),
+                  'content_type': headers.get('Content-Type') or headers.get('content-type'),
+                  'error': error,
+                  'error_payload': parsed if status and status >= 400 else None,
+                  'value_count': len(values) if isinstance(values, list) else None,
+                  'odata_count': parsed.get('@odata.count') if isinstance(parsed, dict) else None,
+                  'identifiers': identifiers,
+                  'registered_values': registered,
+                  'duplicate_registered_at_count': len(registered) - len(set(registered)) if registered else 0,
+                  'unique_nonempty_register_ids': bool(identifiers) and len(identifiers) == len(set(identifiers)) and all(isinstance(v, str) and v for v in identifiers),
+                  'duplicate_composite_tuple_count': len(tuples) - len(set(tuples)) if tuples else 0,
+                  'composite_sorted': tuples == sorted(tuples) if tuples else None,
+                  'title_composite_sorted': title_tuples == sorted(title_tuples) if title_tuples else None,
+                  'sample': values[:5] if isinstance(values, list) else None,
+                  'body_file': str(body_path),
+                  'headers_file': str(headers_path),
+              }
+              write_json(root / f'{name}.json', result)
+              return result
+
+          rows = []
+          try:
+              if len(variants) > request_ceiling:
+                  raise RuntimeError('request ceiling exceeded before execution')
+              for name, params in variants:
+                  rows.append(get_once(name, params))
+                  time.sleep(0.2)
+
+              by_name = {row['name']: row for row in rows}
+              first = by_name['plain_order_registeredAt_registerId_first']
+              repeat = by_name['plain_order_registeredAt_registerId_repeat']
+              if first['status'] != 200 or repeat['status'] != 200:
+                  raise RuntimeError('corrected composite query did not return HTTP 200 twice')
+              if first['value_count'] is None or first['value_count'] > 20:
+                  raise RuntimeError('corrected composite query violated bounded page contract')
+              if not first['unique_nonempty_register_ids']:
+                  raise RuntimeError('corrected composite page lacks unique nonempty registerId values')
+              if first['duplicate_composite_tuple_count'] != 0:
+                  raise RuntimeError('corrected composite order contains duplicate ordering tuples')
+              if first['composite_sorted'] is not True:
+                  raise RuntimeError('corrected composite response is not sorted by registeredAt, registerId')
+              if first['body_sha256'] != repeat['body_sha256']:
+                  raise RuntimeError('immediate corrected composite repeat returned different exact body bytes')
+              if first['identifiers'] != repeat['identifiers']:
+                  raise RuntimeError('immediate corrected composite repeat returned different identifier order')
+
+              recommendation = {
+                  'status': 'passed',
+                  'governed_versions_filter_format': "registeredAt ge yyyy-mm-ddThh:mm:ss and registeredAt le yyyy-mm-ddThh:mm:ss",
+                  'governed_versions_orderby': 'registeredAt asc,registerId asc',
+                  'selected_url': first['url'],
+                  'value_count': first['value_count'],
+                  'body_sha256': first['body_sha256'],
+                  'immediate_repeat_exact_match': True,
+                  'unique_nonempty_register_ids': first['unique_nonempty_register_ids'],
+                  'duplicate_registered_at_count': first['duplicate_registered_at_count'],
+                  'duplicate_composite_tuple_count': first['duplicate_composite_tuple_count'],
+                  'composite_sorted': first['composite_sorted'],
+                  'classification': 'bounded_deterministic_versions_discovery_query_validated',
+                  'package_change_required': True,
+                  'required_change': 'Remove the trailing Z from Versions registeredAt discovery-window literals; retain Titles syntax independently according to its validated contract.',
+              }
+              write_json(root / 'recommendation.json', recommendation)
+          except Exception as exc:
+              write_json(root / 'failure.json', {'error_type': type(exc).__name__, 'error': str(exc), 'traceback': traceback.format_exc()})
+              raise
+          finally:
+              write_json(root / 'matrix.json', rows)
+              (root / 'request_manifest.jsonl').write_text(''.join(json.dumps(row, sort_keys=True) + '\n' for row in rows), encoding='utf-8')
+              write_json(root / 'execution_metadata.json', {
+                  'scope': 'bounded_read_only_corrected_versions_query_validation',
+                  'approved_host': approved_host,
+                  'methods': ['GET'],
+                  'request_count': len(rows),
+                  'request_ceiling': request_ceiling,
+                  'max_concurrency': 1,
+                  'package_executed': False,
+                  'production_target_addressed': False,
+                  'window_start_plain': start_plain,
+                  'window_end_plain': end_plain,
+              })
+          PY
+          rc=$?
+          echo "$rc" > "$EVIDENCE/exit_code.txt"
+          cat "$EVIDENCE/stdout.log" || true
+          cat "$EVIDENCE/stderr.log" >&2 || true
+          exit "$rc"
+
+      - name: Package evidence regardless of outcome
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p "$EVIDENCE" validation/stage5_versions_corrected/final
+          find "$EVIDENCE" -type f ! -name final_sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE/final_sha256.txt"
+          zip -qr validation/stage5_versions_corrected/final/stage5-versions-corrected-query-evidence.zip "$EVIDENCE"
+          sha256sum validation/stage5_versions_corrected/final/stage5-versions-corrected-query-evidence.zip > validation/stage5_versions_corrected/final/stage5-versions-corrected-query-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-versions-corrected-query-evidence
+          path: validation/stage5_versions_corrected/final/
+          if-no-files-found: error
+
+      - name: Enforce validation outcome after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          test -f "$EVIDENCE/exit_code.txt"
+          test "$(cat "$EVIDENCE/exit_code.txt")" = '0'
