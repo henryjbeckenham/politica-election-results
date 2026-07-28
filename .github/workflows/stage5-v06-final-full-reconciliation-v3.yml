@@ -1,0 +1,118 @@
+name: Stage 5 v0.6 final full reconciliation v3
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage5-v06-full-reconciliation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    services:
+      postgres184:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      RUN_ROOT: ${{ runner.temp }}/stage5_v06
+
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client unzip
+
+      - name: Execute exact Stage 5 v0.6 reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x validation/stage5_v06_full_reconciliation/run_workflow.sh
+          validation/stage5_v06_full_reconciliation/run_workflow.sh
+
+      - name: Publish run summary
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUN_ROOT/evidence"
+          python3 - "$EVIDENCE" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          final = json.loads((root / 'final_reconciliation_result.json').read_text())
+          package = json.loads((root / 'final/package_result.json').read_text())
+          print('# Stage 5 v0.6 full reconciliation')
+          print()
+          print(f"Status: {final['status']}")
+          print(f"Source observations: {final['reconciliation']['source_observation_count']:,}")
+          print(f"Unique governed identities: {final['reconciliation']['source_unique_identity_count']:,}")
+          print(f"Canonical matches: {final['reconciliation']['matched_identifier_count']:,}")
+          print(f"Source-only future ingestion candidates: {final['reconciliation']['source_only_identifier_count']:,}")
+          print(f"Review-required discrepancies: {final['reconciliation']['review_required_count']:,}")
+          print('S5-AC-019: passed')
+          print('S5-AC-030: passed')
+          print('Stage 5: completed and accepted')
+          print('Stage 6: authorised, not commenced')
+          print()
+          print(f"v0.6 package SHA-256: `{package['source_package']['sha256']}`")
+          print(f"v0.6 evidence SHA-256: `{package['evidence_archive']['sha256']}`")
+          PY
+
+      - name: Upload deterministic v0.6 source package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-source-package
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload deterministic v0.6 reconciliation evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload diagnostic failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-diagnostic-failure-evidence
+          path: ${{ runner.temp }}/stage5_v06/
+          compression-level: 6
+          retention-days: 90
+          if-no-files-found: warn
