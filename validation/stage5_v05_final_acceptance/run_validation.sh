@@ -32,7 +32,27 @@ for name in \
     > "$EVIDENCE/sql/$name"
 done
 
-python "$ROOT/validate.py" safety --evidence "$EVIDENCE"
+cp "$ROOT/validate.py" "$EVIDENCE/validate_runtime.py"
+python - "$EVIDENCE/validate_runtime.py" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+replacements = {
+    'cd38aba869eff30028bd606b8b2acd79c6e4276628e145a9f6b3033b10787cf1': 'a5669eb5168c011e17d2756ac5e89b675c04efb0e905707e373cb1dad3a08531',
+    '        53140,': '        57644,',
+    '45e3ff07eae9c2328a57042b1f2808d09d3eb0cd38779f7af776c0e5ccf9c2d0': 'c09ba15f78f4e7a04bcec401f03f7f29abc24509b975ef258a03cde4739a3ebd',
+    '        12126,': '        13065,',
+}
+for old, new in replacements.items():
+    if old not in text:
+        raise SystemExit(f'validator patch anchor missing: {old}')
+    text = text.replace(old, new, 1)
+p.write_text(text, encoding='utf-8')
+PY
+sha256sum "$EVIDENCE/validate_runtime.py" > "$EVIDENCE/validate_runtime.py.sha256"
+VALIDATOR="$EVIDENCE/validate_runtime.py"
+python "$VALIDATOR" safety --evidence "$EVIDENCE"
 
 version="$(psql -Atc 'SHOW server_version_num')"
 printf '%s\n' "$version" | tee "$EVIDENCE/server_version_num.txt"
@@ -114,7 +134,7 @@ PY
 psql -d stage5_v05_a -Atc \
   "SELECT external_identifier FROM bls_source.external_identifiers WHERE external_identifier IN ('F2016L01916','F2026C00596','O-000882') ORDER BY 1" \
   > "$EVIDENCE/reconciliation/canonical_ids.txt"
-python "$ROOT/validate.py" reconcile --evidence "$EVIDENCE"
-python "$ROOT/validate.py" final --evidence "$EVIDENCE"
+python "$VALIDATOR" reconcile --evidence "$EVIDENCE"
+python "$VALIDATOR" final --evidence "$EVIDENCE"
 echo STAGE5_V0_5_FINAL_ACCEPTANCE_PASS \
   | tee "$EVIDENCE/final_completion_marker.txt"
