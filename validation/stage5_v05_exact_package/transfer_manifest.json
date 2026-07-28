@@ -1,0 +1,46 @@
+{
+  "base64_char_count": 243504,
+  "chunk_count": 6,
+  "chunks": [
+    {
+      "base64_char_count": 48000,
+      "path": "chunks/package.b64.000",
+      "sequence": 0,
+      "sha256": "c5f934db33ed885280509952611515cfeea8df3d9ffd3deff485c0da27ca78ff"
+    },
+    {
+      "base64_char_count": 48000,
+      "path": "chunks/package.b64.001",
+      "sequence": 1,
+      "sha256": "ec898a9f02a1146c928754b3be612b19a7622a7141e88da803ef74fb27bc4835"
+    },
+    {
+      "base64_char_count": 48000,
+      "path": "chunks/package.b64.002",
+      "sequence": 2,
+      "sha256": "6f1c281117cf00b56f487510d46731e7e8006e47c555ddc36e17162c4a98f44a"
+    },
+    {
+      "base64_char_count": 48000,
+      "path": "chunks/package.b64.003",
+      "sequence": 3,
+      "sha256": "c38294201a9b79b01d7cc2bcdc64a04870b1c6e378068694553d6436996816e5"
+    },
+    {
+      "base64_char_count": 48000,
+      "path": "chunks/package.b64.004",
+      "sequence": 4,
+      "sha256": "ad0de47f2086205f217640ff681840d0f7d9d3715dc08921df4923f07f3b6c62"
+    },
+    {
+      "base64_char_count": 3504,
+      "path": "chunks/package.b64.005",
+      "sequence": 5,
+      "sha256": "ff65c3a15fddce6c382005bc8c43d1b41f21d80c8617ae89fa7871f4947c967e"
+    }
+  ],
+  "manifest_version": 1,
+  "package_name": "politica_stage5_v05_validation_candidate.zip",
+  "package_sha256": "0f40c14e27792b77a25fd6208fe413b1a8053bcdfc8e7db0963c10c3b3af0be8",
+  "package_size_bytes": 182628
+}
