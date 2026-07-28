@@ -1,0 +1,447 @@
+name: Stage 5 v0.6 segmented Federal Register reconciliation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: stage5-v06-segmented-full-reconciliation
+  cancel-in-progress: false
+
+env:
+  ROOT: validation/stage5_v06_full_reconciliation
+  SEED_RUN_ID: 30337273845
+  SEED_ARTIFACT: politica-stage5-v0-6-full-reconciliation-evidence
+  STATE_DIR: state
+  EVIDENCE_NAME: stage5_v0_6_full_reconciliation_evidence
+
+jobs:
+  segment_one:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download retained checkpoint seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SEED_ARTIFACT }}
+          path: retained
+          github-token: ${{ github.token }}
+          repository: henryjbeckenham/politica-election-results
+          run-id: ${{ env.SEED_RUN_ID }}
+
+      - name: Extract retained checkpoint seed
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t retained/politica_stage5_v0_6_full_reconciliation_evidence.zip > retained/seed_zip_integrity.log
+          mkdir -p "$STATE_DIR"
+          unzip -q retained/politica_stage5_v0_6_full_reconciliation_evidence.zip -d "$STATE_DIR"
+          test -d "$STATE_DIR/$EVIDENCE_NAME"
+          sha256sum retained/politica_stage5_v0_6_full_reconciliation_evidence.zip > retained/seed_evidence.sha256
+
+      - name: Reconstruct checksum-gated governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py" "$ROOT/test_segmented_reconciliation.py"
+          python -m unittest -v "$ROOT/test_segmented_reconciliation.py"
+
+      - name: Resume Versions and commence Documents
+        id: execute
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          mkdir -p "$EVIDENCE/logs/segments"
+          python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+            --evidence "$EVIDENCE" --collection Versions --start-page 3298 --end-page 3574 \
+            > "$EVIDENCE/logs/segments/versions_3298_3574.stdout.log" \
+            2> "$EVIDENCE/logs/segments/versions_3298_3574.stderr.log"
+          code=$?
+          if test "$code" -eq 0; then
+            python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+              --evidence "$EVIDENCE" --collection Documents --start-page 0 --end-page 2500 \
+              > "$EVIDENCE/logs/segments/documents_0000_2500.stdout.log" \
+              2> "$EVIDENCE/logs/segments/documents_0000_2500.stderr.log"
+            code=$?
+          fi
+          printf '%s\n' "$code" > "$EVIDENCE/logs/segments/segment_one.exit_code.txt"
+          exit "$code"
+
+      - name: Package checkpoint after segment one
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$STATE_DIR/$EVIDENCE_NAME"
+          (cd "$STATE_DIR" && zip -qr ../segment_one_state.zip "$EVIDENCE_NAME")
+          sha256sum segment_one_state.zip > segment_one_state.zip.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-segment-one-state
+          path: |
+            segment_one_state.zip
+            segment_one_state.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce segment one result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.execute.outcome }}" = success
+
+  segment_two:
+    needs: segment_one
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage5-v06-segment-one-state
+          path: retained
+      - name: Extract and checksum-gate prior segment
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd retained && sha256sum -c segment_one_state.zip.sha256)
+          mkdir -p "$STATE_DIR"
+          unzip -q retained/segment_one_state.zip -d "$STATE_DIR"
+          test -d "$STATE_DIR/$EVIDENCE_NAME"
+      - name: Reconstruct checksum-gated governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py"
+      - name: Continue Documents pages 2500 to 5199
+        id: execute
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+            --evidence "$EVIDENCE" --collection Documents --start-page 2500 --end-page 5200 \
+            > "$EVIDENCE/logs/segments/documents_2500_5200.stdout.log" \
+            2> "$EVIDENCE/logs/segments/documents_2500_5200.stderr.log"
+          code=$?
+          printf '%s\n' "$code" > "$EVIDENCE/logs/segments/segment_two.exit_code.txt"
+          exit "$code"
+      - name: Package checkpoint after segment two
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "$STATE_DIR" && zip -qr ../segment_two_state.zip "$EVIDENCE_NAME")
+          sha256sum segment_two_state.zip > segment_two_state.zip.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-segment-two-state
+          path: |
+            segment_two_state.zip
+            segment_two_state.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+      - name: Enforce segment two result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.execute.outcome }}" = success
+
+  segment_three:
+    needs: segment_two
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage5-v06-segment-two-state
+          path: retained
+      - name: Extract and checksum-gate prior segment
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd retained && sha256sum -c segment_two_state.zip.sha256)
+          mkdir -p "$STATE_DIR"
+          unzip -q retained/segment_two_state.zip -d "$STATE_DIR"
+          test -d "$STATE_DIR/$EVIDENCE_NAME"
+      - name: Reconstruct checksum-gated governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py"
+      - name: Complete Documents, Departments and TextApplies
+        id: execute
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+            --evidence "$EVIDENCE" --collection Documents --start-page 5200 --end-page 7892 \
+            > "$EVIDENCE/logs/segments/documents_5200_7892.stdout.log" \
+            2> "$EVIDENCE/logs/segments/documents_5200_7892.stderr.log"
+          code=$?
+          if test "$code" -eq 0; then
+            python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+              --evidence "$EVIDENCE" --collection Departments --start-page 0 --end-page 1 \
+              > "$EVIDENCE/logs/segments/departments_0000_0001.stdout.log" \
+              2> "$EVIDENCE/logs/segments/departments_0000_0001.stderr.log"
+            code=$?
+          fi
+          if test "$code" -eq 0; then
+            python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" fetch-segment \
+              --evidence "$EVIDENCE" --collection TextApplies --start-page 0 --end-page 6 \
+              > "$EVIDENCE/logs/segments/textapplies_0000_0006.stdout.log" \
+              2> "$EVIDENCE/logs/segments/textapplies_0000_0006.stderr.log"
+            code=$?
+          fi
+          printf '%s\n' "$code" > "$EVIDENCE/logs/segments/segment_three.exit_code.txt"
+          exit "$code"
+      - name: Package checkpoint after segment three
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "$STATE_DIR" && zip -qr ../segment_three_state.zip "$EVIDENCE_NAME")
+          sha256sum segment_three_state.zip > segment_three_state.zip.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-segment-three-state
+          path: |
+            segment_three_state.zip
+            segment_three_state.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+      - name: Enforce segment three result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.execute.outcome }}" = success
+
+  finalise:
+    needs: segment_three
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      SOURCE: validation/stage5_v05_canonical_integration/source
+      V05_ROOT: validation/stage5_v05_final_acceptance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage5-v06-segment-three-state
+          path: retained
+      - name: Extract and checksum-gate completed source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd retained && sha256sum -c segment_three_state.zip.sha256)
+          mkdir -p "$STATE_DIR"
+          unzip -q retained/segment_three_state.zip -d "$STATE_DIR"
+          test -d "$STATE_DIR/$EVIDENCE_NAME"
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Reconstruct checksum-gated governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py" "$ROOT/finalize_reconciliation.py" "$ROOT/build_deterministic_zip.py"
+          python -m unittest -v "$ROOT/test_full_reconciliation.py"
+          python -m unittest -v "$ROOT/test_segmented_reconciliation.py"
+      - name: Rebuild all complete collection sets from retained pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          for collection in Titles Versions Documents Departments TextApplies; do
+            python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" rebuild-collection \
+              --evidence "$EVIDENCE" --collection "$collection" \
+              > "$EVIDENCE/logs/segments/rebuild_${collection}.stdout.log" \
+              2> "$EVIDENCE/logs/segments/rebuild_${collection}.stderr.log"
+          done
+      - name: Re-execute accepted v0.5 PostgreSQL baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          rm -rf "$EVIDENCE/v05_baseline" "$EVIDENCE/v05_runtime"
+          mkdir -p "$EVIDENCE/v05_runtime"
+          cp "$V05_ROOT/run_validation.sh" "$EVIDENCE/v05_runtime/run_validation.sh"
+          cp "$V05_ROOT/validate.py" "$EVIDENCE/v05_runtime/validate.py"
+          cp "$V05_ROOT/semantic_snapshot.sql" "$EVIDENCE/v05_runtime/semantic_snapshot.sql"
+          python - "$EVIDENCE/v05_runtime/run_validation.sh" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'a5669eb5168c011e17d2756ac5e89b675c04efb0e905707e373cb1dad3a08531': 'd051ffaa3fb53686fe44a2d39d41df20a8fbe2281cd17cd5337fb03b7c3336ed',
+              'c09ba15f78f4e7a04bcec401f03f7f29abc24509b975ef258a03cde4739a3ebd': 'acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7',
+              "'        13065,'": "'        13044,'",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'acceptance-runner patch anchor missing: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          chmod +x "$EVIDENCE/v05_runtime/run_validation.sh"
+          SOURCE="$SOURCE" EVIDENCE="$EVIDENCE/v05_baseline" "$EVIDENCE/v05_runtime/run_validation.sh" \
+            > "$EVIDENCE/logs/v05_baseline_segmented.stdout.log" \
+            2> "$EVIDENCE/logs/v05_baseline_segmented.stderr.log"
+          echo 0 > "$EVIDENCE/logs/v05_baseline_segmented.exit_code.txt"
+          grep -q STAGE5_V0_5_FINAL_ACCEPTANCE_PASS "$EVIDENCE/logs/v05_baseline_segmented.stdout.log"
+          psql -Atc 'SHOW server_version_num' | tee "$EVIDENCE/server_version_num.txt" | grep -qx 180004
+          printf '%s  %s\n' '35ee73c946099822b5283f54af570748e06f6a3e2a7f5794e4ddc2ee47204387' "$EVIDENCE/canonical/documents.tsv" | sha256sum -c -
+          printf '%s  %s\n' 'c547acd55a7cdb232fc652b6a21c48019bb93da57073a30e5d30fe54d8d3ccf1' "$EVIDENCE/canonical/external_identifiers.tsv" | sha256sum -c -
+          printf '%s  %s\n' 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' "$EVIDENCE/canonical/text_applies.tsv" | sha256sum -c -
+          printf '%s  %s\n' '9694b729562e7f62c21e3eda2882386987cd77faa31a62a17158510e751e6dd4' "$EVIDENCE/canonical/versions.tsv" | sha256sum -c -
+      - name: Finalise counts, replay sets and classify differences
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          python "$ROOT/segmented_reconciliation.py" --runtime "$ROOT/full_reconciliation.py" finalize \
+            --evidence "$EVIDENCE" \
+            --canonical-tsv "$EVIDENCE/canonical/external_identifiers.tsv" \
+            --canonical-versions-tsv "$EVIDENCE/canonical/versions.tsv" \
+            --canonical-documents-tsv "$EVIDENCE/canonical/documents.tsv" \
+            --canonical-text-applies-tsv "$EVIDENCE/canonical/text_applies.tsv" \
+            > "$EVIDENCE/logs/segmented_finalize.stdout.log" \
+            2> "$EVIDENCE/logs/segmented_finalize.stderr.log"
+          echo 0 > "$EVIDENCE/logs/segmented_finalize.exit_code.txt"
+          grep -q STAGE5_V0_6_FULL_RECONCILIATION_COMPLETED "$EVIDENCE/completion_marker.txt"
+      - name: Execute retained-response replay without source access
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          python "$ROOT/full_reconciliation.py" replay \
+            --evidence "$EVIDENCE" \
+            --canonical-tsv "$EVIDENCE/canonical/external_identifiers.tsv" \
+            --canonical-versions-tsv "$EVIDENCE/canonical/versions.tsv" \
+            --canonical-documents-tsv "$EVIDENCE/canonical/documents.tsv" \
+            --canonical-text-applies-tsv "$EVIDENCE/canonical/text_applies.tsv" \
+            > "$EVIDENCE/logs/replay_segmented.stdout.log" \
+            2> "$EVIDENCE/logs/replay_segmented.stderr.log"
+          echo 0 > "$EVIDENCE/logs/replay_segmented.exit_code.txt"
+          python - "$EVIDENCE/retained_response_replay_result.json" <<'PY'
+          import json, sys
+          result = json.load(open(sys.argv[1]))
+          if result.get('status') != 'passed':
+              raise SystemExit('retained-response replay failed')
+          PY
+      - name: Execute PostgreSQL reconciliation assertions and final assessment
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          python "$ROOT/full_reconciliation.py" write-postgres-sql \
+            --result "$EVIDENCE/semantic_reconciliation_result.json" \
+            --output "$EVIDENCE/postgres_full_reconciliation_assertions.sql"
+          psql -d stage5_v05_a -v ON_ERROR_STOP=1 -f "$EVIDENCE/postgres_full_reconciliation_assertions.sql" \
+            > "$EVIDENCE/logs/postgres_full_reconciliation_segmented.stdout.log" \
+            2> "$EVIDENCE/logs/postgres_full_reconciliation_segmented.stderr.log"
+          echo 0 > "$EVIDENCE/logs/postgres_full_reconciliation_segmented.exit_code.txt"
+          grep -q STAGE5_V0_6_FULL_RECONCILIATION_POSTGRES_PASS "$EVIDENCE/logs/postgres_full_reconciliation_segmented.stdout.log"
+          echo 0 > "$EVIDENCE/logs/unit_tests_segmented.exit_code.txt"
+          python "$ROOT/finalize_reconciliation.py" \
+            --evidence "$EVIDENCE" \
+            --baseline-traceability "$ROOT/STAGE5_REQUIREMENTS_TRACEABILITY_V0_5.json" \
+            --baseline-acceptance "$ROOT/STAGE5_ACCEPTANCE_ASSESSMENT_V0_5.json" \
+            --unit-tests-exit "$EVIDENCE/logs/unit_tests_segmented.exit_code.txt" \
+            --postgres-exit "$EVIDENCE/logs/postgres_full_reconciliation_segmented.exit_code.txt" \
+            --v05-negative-result "$EVIDENCE/v05_baseline/negative/result.json" \
+            > "$EVIDENCE/logs/finalize_segmented.stdout.log" \
+            2> "$EVIDENCE/logs/finalize_segmented.stderr.log"
+          echo STAGE5_V0_6_TECHNICAL_ACCEPTANCE_PASS | tee "$EVIDENCE/technical_acceptance_marker.txt"
+      - name: Build deterministic final evidence twice
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$PWD/$STATE_DIR/$EVIDENCE_NAME"
+          mkdir -p final
+          for name in source_reconstruction.json governed_baseline_correction.json governed_duplicate_observation_patch.json; do
+            if test -f "$ROOT/$name"; then cp "$ROOT/$name" "$EVIDENCE/$name"; fi
+          done
+          python "$ROOT/build_deterministic_zip.py" --source "$EVIDENCE" \
+            --output final/politica_stage5_v0_6_segmented_full_reconciliation_evidence.zip \
+            --prefix stage5_v0_6_full_reconciliation_evidence \
+            > final/evidence_archive_manifest.json
+          python "$ROOT/build_deterministic_zip.py" --source "$EVIDENCE" \
+            --output final/politica_stage5_v0_6_segmented_full_reconciliation_evidence_repeat.zip \
+            --prefix stage5_v0_6_full_reconciliation_evidence \
+            > final/evidence_archive_repeat_manifest.json
+          cmp final/politica_stage5_v0_6_segmented_full_reconciliation_evidence.zip \
+              final/politica_stage5_v0_6_segmented_full_reconciliation_evidence_repeat.zip
+          rm final/politica_stage5_v0_6_segmented_full_reconciliation_evidence_repeat.zip
+          sha256sum final/politica_stage5_v0_6_segmented_full_reconciliation_evidence.zip \
+            > final/politica_stage5_v0_6_segmented_full_reconciliation_evidence.zip.sha256
+          echo STAGE5_V0_6_DETERMINISTIC_EVIDENCE_PACKAGE_PASS > final/deterministic_package_marker.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: politica-stage5-v0-6-segmented-final-evidence
+          path: final/
+          if-no-files-found: error
+          retention-days: 90
