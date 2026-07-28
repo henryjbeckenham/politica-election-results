@@ -1,0 +1,60 @@
+name: Stage 5 v0.6 Document prefix partition plan
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download retained complete Titles evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence
+          path: retained
+          github-token: ${{ github.token }}
+          repository: henryjbeckenham/politica-election-results
+          run-id: 30337273845
+      - name: Extract Titles identifier set
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t retained/politica_stage5_v0_6_full_reconciliation_evidence.zip > retained/seed_zip_integrity.log
+          mkdir -p state
+          unzip -q retained/politica_stage5_v0_6_full_reconciliation_evidence.zip -d state
+          TITLES="$PWD/state/stage5_v0_6_full_reconciliation_evidence/collections/Titles/source_external_identifier_set.txt.gz"
+          test -f "$TITLES"
+          sha256sum "$TITLES" > retained/titles_identifier_set.sha256
+      - name: Validate planner and generate live partition plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          OUT="$ROOT/document_partition_plan_evidence"
+          TITLES="$PWD/state/stage5_v0_6_full_reconciliation_evidence/collections/Titles/source_external_identifier_set.txt.gz"
+          python -m py_compile "$ROOT/document_partition_plan.py" "$ROOT/test_document_partition_plan.py"
+          python -m unittest -v "$ROOT/test_document_partition_plan.py" > "$ROOT/document_partition_plan_tests.stdout.log" 2> "$ROOT/document_partition_plan_tests.stderr.log"
+          echo 0 > "$ROOT/document_partition_plan_tests.exit_code.txt"
+          python "$ROOT/document_partition_plan.py" --titles "$TITLES" --output "$OUT" --max-rows 10000 \
+            > "$OUT.stdout.log" 2> "$OUT.stderr.log"
+          echo 0 > "$OUT.exit_code.txt"
+          grep -q '"status": "passed"' "$OUT/document_partition_plan_result.json"
+          cp "$ROOT/document_partition_plan_tests."* "$OUT/"
+          cp retained/titles_identifier_set.sha256 "$OUT/"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-document-partition-plan
+          path: |
+            validation/stage5_v06_full_reconciliation/document_partition_plan_evidence/
+            validation/stage5_v06_full_reconciliation/document_partition_plan_tests.*
+          if-no-files-found: error
+          retention-days: 90
