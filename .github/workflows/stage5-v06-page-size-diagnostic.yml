@@ -30,8 +30,14 @@ jobs:
           set -euo pipefail
           ROOT=validation/stage5_v06_full_reconciliation
           sha256sum "$ROOT/apply_governed_page_size_patch.py" > "$ROOT/page_size_patch_script.sha256"
+          sha256sum "$ROOT/apply_governed_page_size_test_patch.py" > "$ROOT/page_size_test_patch_script.sha256"
           python "$ROOT/apply_governed_page_size_patch.py"
-          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/test_full_reconciliation.py" "$ROOT/apply_governed_page_size_patch.py"
+          python "$ROOT/apply_governed_page_size_test_patch.py"
+          python -m py_compile \
+            "$ROOT/full_reconciliation.py" \
+            "$ROOT/test_full_reconciliation.py" \
+            "$ROOT/apply_governed_page_size_patch.py" \
+            "$ROOT/apply_governed_page_size_test_patch.py"
           grep -E '^(PAGE_SIZE|REQUEST_CEILING|RULESET_VERSION) =' "$ROOT/full_reconciliation.py" > "$ROOT/page_size_runtime_constants.txt"
       - name: Run deterministic reconciliation tests
         shell: bash
@@ -50,7 +56,9 @@ jobs:
           name: stage5-v06-page-size-diagnostic
           path: |
             validation/stage5_v06_full_reconciliation/governed_page_size_patch.json
+            validation/stage5_v06_full_reconciliation/governed_page_size_test_patch.json
             validation/stage5_v06_full_reconciliation/page_size_patch_script.sha256
+            validation/stage5_v06_full_reconciliation/page_size_test_patch_script.sha256
             validation/stage5_v06_full_reconciliation/page_size_runtime_constants.txt
             validation/stage5_v06_full_reconciliation/page_size_unit_tests.*
           if-no-files-found: error
