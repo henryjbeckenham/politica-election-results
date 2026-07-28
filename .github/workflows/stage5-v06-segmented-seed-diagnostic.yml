@@ -1,0 +1,110 @@
+name: Stage 5 v0.6 segmented seed diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download retained cancelled-run evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence
+          path: retained
+          github-token: ${{ github.token }}
+          repository: henryjbeckenham/politica-election-results
+          run-id: 30337273845
+
+      - name: Extract and verify retained seed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f retained/politica_stage5_v0_6_full_reconciliation_evidence.zip
+          unzip -t retained/politica_stage5_v0_6_full_reconciliation_evidence.zip > retained/zip_integrity.log
+          mkdir -p state
+          unzip -q retained/politica_stage5_v0_6_full_reconciliation_evidence.zip -d state
+          test -d state/stage5_v0_6_full_reconciliation_evidence
+          sha256sum retained/politica_stage5_v0_6_full_reconciliation_evidence.zip > retained/seed_evidence.sha256
+
+      - name: Reconstruct governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+          python -m py_compile "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py" "$ROOT/test_segmented_reconciliation.py"
+
+      - name: Run segmented reconciliation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          python -m unittest -v "$ROOT/test_segmented_reconciliation.py" > retained/segmented_tests.stdout.log 2> retained/segmented_tests.stderr.log
+          echo 0 > retained/segmented_tests.exit_code.txt
+
+      - name: Validate retained checkpoint state without source access
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          EVIDENCE="$PWD/state/stage5_v0_6_full_reconciliation_evidence"
+          python - "$ROOT/full_reconciliation.py" "$ROOT/segmented_reconciliation.py" "$EVIDENCE" <<'PY'
+          import importlib.util, json, sys
+          from pathlib import Path
+          runtime_path, segmented_path, evidence_path = map(Path, sys.argv[1:])
+          def load(name, path):
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              assert spec and spec.loader
+              spec.loader.exec_module(module)
+              return module
+          runtime = load('stage5_v06_runtime_seed_validation', runtime_path)
+          segmented = load('stage5_v06_segmented_seed_validation', segmented_path)
+          evidence = evidence_path.resolve()
+          segmented.assert_seed_compatible(runtime, evidence)
+          counts = segmented.collection_counts(evidence)
+          titles = segmented.retained_state(runtime, evidence, segmented.collection_spec(runtime, 'Titles'), counts['Titles'])
+          versions = segmented.retained_state(runtime, evidence, segmented.collection_spec(runtime, 'Versions'), counts['Versions'])
+          result = {
+              'status': 'passed',
+              'titles_completed_pages': titles['completed_pages'],
+              'titles_planned_pages': titles['planned_pages'],
+              'versions_completed_pages': versions['completed_pages'],
+              'versions_planned_pages': versions['planned_pages'],
+              'versions_next_page': versions['completed_pages'],
+              'next_request_index': segmented.next_request_index(evidence),
+              'final_watermark_present': (evidence / 'final_reconciliation_watermark.json').exists(),
+              'disappearance_threshold_advanced': False,
+          }
+          if result['titles_completed_pages'] != result['titles_planned_pages']:
+              raise SystemExit('Titles seed is not complete')
+          if result['versions_next_page'] != 3298:
+              raise SystemExit(f"unexpected Versions next page: {result['versions_next_page']}")
+          if result['final_watermark_present']:
+              raise SystemExit('partial seed owns final watermark')
+          (Path('retained') / 'seed_validation_result.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-segmented-seed-diagnostic
+          path: retained/
+          if-no-files-found: error
+          retention-days: 90
