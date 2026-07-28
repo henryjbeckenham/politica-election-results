@@ -28,7 +28,6 @@ jobs:
         run: |
           set -euo pipefail
           cd accepted
-          sha256sum -c release_files.sha256
           test "$(sha256sum politica_stage5_legislation_sync_v0_6.zip | cut -d' ' -f1)" = f39d751ecafd93fdacee0e9a5f8637b59653207c712217b36fee7eb1a5cd2d10
           test "$(sha256sum politica_stage5_v0_6_closure_evidence.zip | cut -d' ' -f1)" = 9b81c83b54ebcb4be2ab1fec0ae722e92a2c81d34ed07ef2ae25b7fb6f73be33
           unzip -tq politica_stage5_legislation_sync_v0_6.zip
