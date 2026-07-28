@@ -1,0 +1,148 @@
+name: Stage 5 v0.6 checksum-gated temporary transfer
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: stage5-v06-public-transfer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      TRANSFER_BIN: politica-stage5-v06-7f3c2b9a4e1d
+    steps:
+      - name: Wait for successful v3 reconciliation run on the same commit
+        id: find
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            run_json="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow 'Stage 5 v0.6 final full reconciliation v3' \
+              --branch '${{ github.head_ref }}' \
+              --limit 30 \
+              --json databaseId,headSha,status,conclusion,createdAt)"
+            run_id="$(python3 - <<'PY' "$run_json" "$TARGET_HEAD_SHA"
+          import json,sys
+          rows=json.loads(sys.argv[1]); sha=sys.argv[2]
+          matches=[r for r in rows if r.get('headSha')==sha and r.get('status')=='completed' and r.get('conclusion')=='success']
+          matches.sort(key=lambda r:r.get('createdAt',''), reverse=True)
+          print(matches[0]['databaseId'] if matches else '')
+          PY
+            )"
+            if test -n "$run_id"; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'No successful v3 reconciliation run was found for the current head commit.' >&2
+          exit 1
+
+      - name: Download exact accepted artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p transfer/package transfer/evidence
+          gh run download '${{ steps.find.outputs.run_id }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --name politica-stage5-v0-6-source-package \
+            --dir transfer/package
+          gh run download '${{ steps.find.outputs.run_id }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --name politica-stage5-v0-6-full-reconciliation-evidence \
+            --dir transfer/evidence
+          (cd transfer/package && sha256sum --check politica_stage5_legislation_sync_v0_6.zip.sha256)
+          (cd transfer/evidence && sha256sum --check politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256)
+
+      - name: Upload to fixed temporary transfer bin and verify readback hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://filebin.net/${TRANSFER_BIN}"
+          files=(
+            transfer/package/politica_stage5_legislation_sync_v0_6.zip
+            transfer/package/politica_stage5_legislation_sync_v0_6.zip.sha256
+            transfer/evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip
+            transfer/evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+          )
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            curl --fail --show-error --silent \
+              --upload-file "$file" \
+              -H 'cid: Politica-Stage5-v0.6-governed-transfer' \
+              "$base/$name" >/dev/null
+          done
+          mkdir -p transfer/readback
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            curl --fail --show-error --silent --location \
+              "$base/$name" -o "transfer/readback/$name"
+            cmp "$file" "transfer/readback/$name"
+          done
+          (cd transfer/readback && sha256sum --check politica_stage5_legislation_sync_v0_6.zip.sha256)
+          (cd transfer/readback && sha256sum --check politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256)
+          printf '%s\n' \
+            "$base/politica_stage5_legislation_sync_v0_6.zip" \
+            "$base/politica_stage5_legislation_sync_v0_6.zip.sha256" \
+            "$base/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+            "$base/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256" \
+            > transfer/temporary_transfer_urls.txt
+          cp transfer/package/package_result.json transfer/package_result.json
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('transfer')
+          package=json.loads((root/'package_result.json').read_text())
+          urls=(root/'temporary_transfer_urls.txt').read_text().splitlines()
+          result={
+            'status':'passed',
+            'temporary_transport_only':True,
+            'governed_retention_pending_google_drive_transfer':True,
+            'source_package':package['source_package'],
+            'evidence_archive':package['evidence_archive'],
+            'urls':urls,
+          }
+          (root/'temporary_transfer_manifest.json').write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Record temporary transfer on diagnostic pull request
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_sha="$(awk '{print $1}' transfer/package/politica_stage5_legislation_sync_v0_6.zip.sha256)"
+          evidence_sha="$(awk '{print $1}' transfer/evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256)"
+          cat > transfer/pr_comment.md <<EOF
+          Stage 5 v0.6 reconciliation artifacts passed checksum-gated temporary transfer readback.
+
+          - Source package SHA-256: \`${package_sha}\`
+          - Evidence archive SHA-256: \`${evidence_sha}\`
+          - Temporary transfer bin: \`${TRANSFER_BIN}\`
+
+          These copies are temporary transport only. Google Drive retention and governance updates remain required before Stage 5 closure is operationally complete. This diagnostic pull request must not be merged.
+          EOF
+          gh pr comment '${{ github.event.pull_request.number }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file transfer/pr_comment.md
+
+      - name: Upload temporary transfer manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-temporary-transfer-manifest
+          path: |
+            transfer/temporary_transfer_manifest.json
+            transfer/temporary_transfer_urls.txt
+          retention-days: 90
