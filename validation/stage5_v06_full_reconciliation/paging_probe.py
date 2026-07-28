@@ -7,7 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 HOST = "api.prod.legislation.gov.au"
 BASE = f"https://{HOST}/v1"
@@ -16,7 +16,7 @@ RAW = OUT / "raw"
 RAW.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 8 * 1024 * 1024
 TIMEOUT = 45
-PAGE_SIZE = 5000
+PAGE_SIZE = 500
 
 
 def write_json(path: Path, value: Any) -> None:
