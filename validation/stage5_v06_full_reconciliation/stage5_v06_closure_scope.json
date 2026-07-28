@@ -1,0 +1,25 @@
+{
+  "decision_id": "DEC-021",
+  "decision_date": "2026-07-28",
+  "scope_version": "stage5-v0.6-closure-1",
+  "objective": "Complete Stage 5 identifier-set reconciliation without converting the validation stage into unrestricted production harvesting.",
+  "independent_external_identifier_families": {
+    "Titles": "id",
+    "Versions": "registerId when non-null",
+    "Departments": "id"
+  },
+  "dependent_observation_families": {
+    "Versions_without_registerId": "compound source observation identity",
+    "Documents": "compound observation identity governed through complete title-prefix count partitions and parent title coverage",
+    "TextApplies": "compound observation identity governed through complete collection traversal and parent title linkage"
+  },
+  "closure_rule": "S5-AC-019 requires complete reconciliation of authoritative external identifier sets. Dependent observations without standalone source identifiers are reconciled by complete parent-linked coverage, counts, deterministic identities and retained representative or complete observations. Exhaustive Document-row harvesting is deferred to the production synchronisation operation because Stage 5 expressly excludes unrestricted historical crawling.",
+  "prohibitions": [
+    "no invented external identifier",
+    "no production database target",
+    "no mutation source method",
+    "no deletion or deactivation from one absence",
+    "no inferred commencement event",
+    "no Stage 6 implementation in the closure action"
+  ]
+}
