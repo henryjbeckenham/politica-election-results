@@ -6,15 +6,30 @@ SOURCE="${SOURCE:?SOURCE environment variable required}"
 EVIDENCE="${EVIDENCE:?EVIDENCE environment variable required}"
 mkdir -p "$EVIDENCE/sql" "$EVIDENCE/logs" "$EVIDENCE/negative" "$EVIDENCE/reconciliation/raw"
 
+for fragment in 0 1 2 3 4; do
+  test -f "$SOURCE/stage3_fragments/stage3.$fragment"
+done
+cat "$SOURCE/stage3_fragments/stage3.0" \
+    "$SOURCE/stage3_fragments/stage3.1" \
+    "$SOURCE/stage3_fragments/stage3.2" \
+    "$SOURCE/stage3_fragments/stage3.3" \
+    "$SOURCE/stage3_fragments/stage3.4" \
+  | tr -d '\r\n' \
+  | base64 -d \
+  | gzip -d \
+  > "$EVIDENCE/sql/stage3_full_domain_v0_10b.sql"
+
 for name in \
-  stage3_full_domain_v0_10b.sql \
   stage5_canonical_live_fixture.sql \
   stage5_canonical_live_assertions.sql \
   negative_missing_external_identifier_evidence.sql \
   negative_generic_external_identifier_evidence.sql \
   negative_invented_commencement_event.sql; do
   test -f "$SOURCE/$name.gz.b64"
-  base64 -d "$SOURCE/$name.gz.b64" | gzip -d > "$EVIDENCE/sql/$name"
+  tr -d '\r\n' < "$SOURCE/$name.gz.b64" \
+    | base64 -d \
+    | gzip -d \
+    > "$EVIDENCE/sql/$name"
 done
 
 python "$ROOT/validate.py" safety --evidence "$EVIDENCE"
@@ -52,7 +67,7 @@ for db in stage5_v05_a stage5_v05_b; do
   done
   grep -q STAGE5_CANONICAL_LIVE_POSTGRES_PASS \
     "$run_dir/logs/stage5_canonical_live_assertions.sql.stdout.log"
-  psql -d "$db" -f "$ROOT/semantic_snapshot.sql" > "$run_dir/semantic_snapshot.json"
+  psql -qAt -d "$db" -f "$ROOT/semantic_snapshot.sql" > "$run_dir/semantic_snapshot.json"
   sha256sum "$run_dir/semantic_snapshot.json" > "$run_dir/semantic_snapshot.sha256"
 done
 
