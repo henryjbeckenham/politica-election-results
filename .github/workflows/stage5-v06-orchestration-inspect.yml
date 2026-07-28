@@ -1,0 +1,44 @@
+name: Stage 5 v0.6 orchestration inspection
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct governed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          python "$ROOT/reconstruct_sources.py" --source "$ROOT/source" --output "$ROOT" --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' "$ROOT/apply_governed_baseline_correction.py" | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' '234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a' "$ROOT/apply_governed_duplicate_observation_patch.py" | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
+      - name: Capture orchestration ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v06_full_reconciliation
+          OUT="$ROOT/orchestration_inspection"
+          mkdir -p "$OUT"
+          sed -n '1,260p' "$ROOT/full_reconciliation.py" > "$OUT/top.py.txt"
+          sed -n '790,1125p' "$ROOT/full_reconciliation.py" > "$OUT/replay_and_canonical.py.txt"
+          sed -n '1050,1455p' "$ROOT/full_reconciliation.py" > "$OUT/differences_and_semantic.py.txt"
+          sed -n '1380,1605p' "$ROOT/full_reconciliation.py" > "$OUT/live_flow.py.txt"
+          sha256sum "$ROOT/full_reconciliation.py" > "$OUT/runtime_sha256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage5-v06-orchestration-inspection
+          path: validation/stage5_v06_full_reconciliation/orchestration_inspection/
+          if-no-files-found: error
+          retention-days: 90
