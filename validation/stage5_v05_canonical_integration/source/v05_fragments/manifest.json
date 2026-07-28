@@ -3,18 +3,46 @@
     "assertions": {
       "chunks": [
         {
-          "base64_char_count": 1800,
-          "byte_count": 1800,
-          "path": "assertions.0",
+          "base64_char_count": 600,
+          "byte_count": 600,
+          "path": "assertions_small/assertions.0",
           "sequence": 0,
-          "sha256": "862cf04005b5fd8cc03131936408d4b4301616034d379f221678f78155667878"
+          "sha256": "b641cd68163db94b999a81cc3995b2548d08d9a6ef922d1373f7097fb03a745e"
         },
         {
-          "base64_char_count": 1688,
-          "byte_count": 1688,
-          "path": "assertions.1",
+          "base64_char_count": 600,
+          "byte_count": 600,
+          "path": "assertions_small/assertions.1",
           "sequence": 1,
-          "sha256": "c2d4d3165275480c52cc46c74783d6884fb7689d4da24de22ebef77754049e93"
+          "sha256": "58e906ff2ef03f84e734cb8fbf6748e3684b15a1268402be4737ee03d9af53c3"
+        },
+        {
+          "base64_char_count": 600,
+          "byte_count": 600,
+          "path": "assertions_small/assertions.2",
+          "sequence": 2,
+          "sha256": "e7027c33bdd306a2f469add952ec70a5bc54f28349e7328c6f091c488b763c02"
+        },
+        {
+          "base64_char_count": 600,
+          "byte_count": 600,
+          "path": "assertions_small/assertions.3",
+          "sequence": 3,
+          "sha256": "3635038a254787e07d7d7baaff58aa6438dc99db130d651dbad1adaae85d1404"
+        },
+        {
+          "base64_char_count": 600,
+          "byte_count": 600,
+          "path": "assertions_small/assertions.4",
+          "sequence": 4,
+          "sha256": "7852089ac88e55bd992ba2b4caed55568776145bfc26baf413f941abf75d08f6"
+        },
+        {
+          "base64_char_count": 488,
+          "byte_count": 488,
+          "path": "assertions_small/assertions.5",
+          "sequence": 5,
+          "sha256": "ecc41817e2dd9ccecceb43c405212c7a2dff697042a2ec7fe17422172919895a"
         }
       ],
       "combined_base64_char_count": 3488,
@@ -57,5 +85,5 @@
       "decoded_sha256": "a5669eb5168c011e17d2756ac5e89b675c04efb0e905707e373cb1dad3a08531"
     }
   },
-  "version": 1
+  "version": 2
 }
