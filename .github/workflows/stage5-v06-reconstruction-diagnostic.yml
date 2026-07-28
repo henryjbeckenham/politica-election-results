@@ -94,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          expected='035b4ba5d3f2cee24dd2f605abc86b16dd1e561f74d535cad77c20da60b4a79f'
+          expected='234ea20c8fff5b924eddbcdef125c1fee9ca248b1817845b662e9c4be598f47a'
           actual="$(sha256sum "$ROOT/apply_governed_duplicate_observation_patch.py" | awk '{print $1}')"
           printf 'expected=%s\nactual=%s\n' "$expected" "$actual" > "$DIAG/duplicate_script_hash.txt"
           if test "$actual" != "$expected"; then
