@@ -96,7 +96,7 @@ jobs:
           EVIDENCE: ${{ github.workspace }}/work/v05
         run: |
           set -euo pipefail
-          head -n 200 validation/stage5_v05_final_acceptance/run_validation.sh > work/run_v05_postgres_only.sh
+          sed -n '1,98p;121,200p' validation/stage5_v05_final_acceptance/run_validation.sh > work/run_v05_postgres_only.sh
           printf '%s\n' 'echo STAGE5_V0_5_POSTGRES_CONTROLS_RECONFIRMED | tee "$EVIDENCE/postgres_reconfirmation_marker.txt"' >> work/run_v05_postgres_only.sh
           chmod +x work/run_v05_postgres_only.sh
           work/run_v05_postgres_only.sh
