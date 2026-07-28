@@ -1,0 +1,296 @@
+name: Stage 5 v0.6 final full reconciliation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage5-v06-full-reconciliation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    services:
+      postgres184:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      V05_DRIVE_ID: 1smCZOC03WqqQxsPAO4Sg4OYsX8F-FQq_
+      V05_SHA256: c0028534de83645ba102b9a211754203db1c333942458552fbc7032b7d4781e9
+      STAGE3_DDL_SHA256: daab4b5f476d093fa975ebd93b72e941ab08e29b59519567ddddfc3caeb81fcc
+      V05_FIXTURE_SHA256: d051ffaa3fb53686fe44a2d39d41df20a8fbe2281cd17cd5337fb03b7c3336ed
+      V05_ASSERTIONS_SHA256: acc3abaf5247e3c2c59475f09d09a15baafec29626a2df32a1836b79eac822e7
+
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client and validate runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client unzip
+          python3 --version
+          psql --version
+          pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER"
+          version="$(psql -X -qAt -d postgres -c 'SHOW server_version_num')"
+          printf '%s\n' "$version"
+          test "$version" = "180004"
+
+      - name: Verify reconciliation code and configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/validation/stage5_v06_full_reconciliation"
+          python3 -m py_compile "$ROOT/reconcile.py" "$ROOT/reconcile_v2.py"
+          python3 -m json.tool "$ROOT/reconciliation_config.json" >/dev/null
+          python3 "$ROOT/reconcile_v2.py" self-test \
+            --config "$ROOT/reconciliation_config.json" \
+            --output "$RUNNER_TEMP/stage5_v06_preflight_tests.json"
+
+      - name: Download and checksum-gate exact accepted v0.5 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/stage5_v06/input" "$RUNNER_TEMP/stage5_v06/v05"
+          output="$RUNNER_TEMP/stage5_v06/input/politica_stage5_legislation_sync_v0_5.zip"
+          urls=(
+            "https://drive.usercontent.google.com/download?id=${V05_DRIVE_ID}&export=download&confirm=t"
+            "https://drive.google.com/uc?export=download&id=${V05_DRIVE_ID}"
+          )
+          success=0
+          for url in "${urls[@]}"; do
+            if curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 180 \
+              "$url" -o "$output"; then
+              if printf '%s  %s\n' "$V05_SHA256" "$output" | sha256sum --check --status; then
+                success=1
+                break
+              fi
+            fi
+          done
+          test "$success" = "1"
+          printf '%s  %s\n' "$V05_SHA256" "$output" | tee "$RUNNER_TEMP/stage5_v06/input/v05_package.sha256"
+          unzip -t "$output" | tee "$RUNNER_TEMP/stage5_v06/input/v05_unzip_test.log"
+          unzip -q "$output" -d "$RUNNER_TEMP/stage5_v06/v05"
+          V05_ROOT="$(find "$RUNNER_TEMP/stage5_v06/v05" -mindepth 1 -maxdepth 1 -type d -name 'politica_stage5_legislation_sync_v0_5*' | head -n 1)"
+          test -n "$V05_ROOT"
+          printf '%s\n' "$V05_ROOT" > "$RUNNER_TEMP/stage5_v06/input/v05_root.txt"
+
+      - name: Re-run accepted v0.5 deterministic tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          V05_ROOT="$(cat "$RUNNER_TEMP/stage5_v06/input/v05_root.txt")"
+          mkdir -p "$RUNNER_TEMP/stage5_v06/evidence/v05_tests"
+          set +e
+          PYTHONPATH="$V05_ROOT/src" python3 -m unittest discover -s "$V05_ROOT/tests" -v \
+            >"$RUNNER_TEMP/stage5_v06/evidence/v05_tests/stdout.log" \
+            2>"$RUNNER_TEMP/stage5_v06/evidence/v05_tests/stderr.log"
+          code=$?
+          set -e
+          printf '%s\n' "$code" > "$RUNNER_TEMP/stage5_v06/evidence/v05_tests/exit_code.txt"
+          test "$code" = "0"
+          grep -Eq 'Ran 70 tests' "$RUNNER_TEMP/stage5_v06/evidence/v05_tests/stderr.log"
+          grep -Eq '^OK$' "$RUNNER_TEMP/stage5_v06/evidence/v05_tests/stderr.log"
+
+      - name: Execute exact accepted Stage 3 and v0.5 canonical PostgreSQL inputs twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          V05_ROOT="$(cat "$RUNNER_TEMP/stage5_v06/input/v05_root.txt")"
+          EVIDENCE="$RUNNER_TEMP/stage5_v06/evidence"
+          SQL_ROOT="$V05_ROOT/sql"
+          DDL="$SQL_ROOT/stage3_full_domain_v0_10b.sql"
+          FIXTURE="$SQL_ROOT/stage5_canonical_live_fixture.sql"
+          ASSERTIONS="$SQL_ROOT/stage5_canonical_live_assertions.sql"
+          test -f "$DDL" -a -f "$FIXTURE" -a -f "$ASSERTIONS"
+          printf '%s  %s\n' "$STAGE3_DDL_SHA256" "$DDL" | sha256sum --check
+          printf '%s  %s\n' "$V05_FIXTURE_SHA256" "$FIXTURE" | sha256sum --check
+          printf '%s  %s\n' "$V05_ASSERTIONS_SHA256" "$ASSERTIONS" | sha256sum --check
+          mkdir -p "$EVIDENCE/postgresql"
+          psql -X -qAt -d postgres -c 'SHOW server_version_num' | tee "$EVIDENCE/postgresql/server_version_num.txt"
+          grep -qx '180004' "$EVIDENCE/postgresql/server_version_num.txt"
+
+          for db in stage5_v06_a stage5_v06_b; do
+            dropdb --if-exists "$db"
+            createdb "$db"
+            mkdir -p "$EVIDENCE/postgresql/$db"
+            for file in "$DDL" "$FIXTURE" "$ASSERTIONS"; do
+              name="$(basename "$file")"
+              date -u +%Y-%m-%dT%H:%M:%SZ > "$EVIDENCE/postgresql/$db/${name}.started_at_utc.txt"
+              set +e
+              psql -X -d "$db" -v ON_ERROR_STOP=1 -f "$file" \
+                >"$EVIDENCE/postgresql/$db/${name}.stdout.log" \
+                2>"$EVIDENCE/postgresql/$db/${name}.stderr.log"
+              code=$?
+              set -e
+              printf '%s\n' "$code" > "$EVIDENCE/postgresql/$db/${name}.exit_code.txt"
+              date -u +%Y-%m-%dT%H:%M:%SZ > "$EVIDENCE/postgresql/$db/${name}.completed_at_utc.txt"
+              sha256sum "$file" > "$EVIDENCE/postgresql/$db/${name}.sha256"
+              test "$code" = "0"
+              test ! -s "$EVIDENCE/postgresql/$db/${name}.stderr.log"
+            done
+            grep -q 'STAGE5_CANONICAL_LIVE_POSTGRES_PASS' \
+              "$EVIDENCE/postgresql/$db/stage5_canonical_live_assertions.sql.stdout.log"
+          done
+
+          psql -X -qAt -d stage5_v06_a -c \
+            "SELECT external_identifier FROM bls_source.external_identifiers WHERE external_identifier IN ('F2016L01916','F2026C00596','O-000882') ORDER BY 1" \
+            > "$EVIDENCE/postgresql/canonical_ids.txt"
+          test "$(wc -l < "$EVIDENCE/postgresql/canonical_ids.txt")" = "3"
+          psql -X -qAt -d stage5_v06_a -c \
+            "SELECT count(*) FROM bls_source.external_identifier_evidence" \
+            > "$EVIDENCE/postgresql/external_identifier_evidence_count.txt"
+          grep -qx '3' "$EVIDENCE/postgresql/external_identifier_evidence_count.txt"
+
+          if test -f "$SQL_ROOT/stage5_canonical_semantic_snapshot.sql"; then
+            for db in stage5_v06_a stage5_v06_b; do
+              psql -X -qAt -d "$db" -f "$SQL_ROOT/stage5_canonical_semantic_snapshot.sql" \
+                > "$EVIDENCE/postgresql/$db/semantic_snapshot.json"
+              sha256sum "$EVIDENCE/postgresql/$db/semantic_snapshot.json" \
+                > "$EVIDENCE/postgresql/$db/semantic_snapshot.sha256"
+            done
+            cmp "$EVIDENCE/postgresql/stage5_v06_a/semantic_snapshot.json" \
+                "$EVIDENCE/postgresql/stage5_v06_b/semantic_snapshot.json"
+          fi
+          echo STAGE5_V0_5_CANONICAL_INTEGRATION_COMPLETED | tee "$EVIDENCE/postgresql/completion_marker.txt"
+
+      - name: Execute complete source-wide partitioned reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/validation/stage5_v06_full_reconciliation"
+          V05_ROOT="$(cat "$RUNNER_TEMP/stage5_v06/input/v05_root.txt")"
+          EVIDENCE="$RUNNER_TEMP/stage5_v06/evidence"
+          cp "$RUNNER_TEMP/stage5_v06/input/politica_stage5_legislation_sync_v0_5.zip" "$EVIDENCE/"
+          cp "$RUNNER_TEMP/stage5_v06/input/v05_package.sha256" "$EVIDENCE/"
+          cp "$RUNNER_TEMP/stage5_v06/input/v05_unzip_test.log" "$EVIDENCE/"
+          cp "$RUNNER_TEMP/stage5_v06_preflight_tests.json" "$EVIDENCE/preflight_self_tests.json"
+          python3 "$ROOT/reconcile_v2.py" live \
+            --config "$ROOT/reconciliation_config.json" \
+            --evidence "$EVIDENCE" \
+            --package-root "$V05_ROOT" \
+            --canonical-ids "$EVIDENCE/postgresql/canonical_ids.txt" \
+            | tee "$EVIDENCE/full_reconciliation_stdout.log"
+          grep -q STAGE5_V0_6_FULL_RECONCILIATION_PASS "$EVIDENCE/full_reconciliation_stdout.log"
+          grep -q STAGE5_AC_019_PASS "$EVIDENCE/full_reconciliation_stdout.log"
+          grep -q STAGE5_AC_030_PASS "$EVIDENCE/full_reconciliation_stdout.log"
+          grep -q STAGE5_COMPLETED_STAGE6_AUTHORISED "$EVIDENCE/full_reconciliation_stdout.log"
+          python3 - "$EVIDENCE" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          result = json.loads((root / 'final_reconciliation_result.json').read_text())
+          summary = result['reconciliation']
+          assert result['status'] == 'passed'
+          assert result['s5_ac_019'] == 'passed'
+          assert summary['matched_identifier_count'] == 3
+          assert summary['canonical_only_identifier_count'] == 0
+          assert summary['missing_raw_evidence_count'] == 0
+          assert summary['invalid_specialised_identifier_evidence_count'] == 0
+          assert summary['conflicting_duplicate_source_identity_count'] == 0
+          assert summary['review_required_count'] == 0
+          acceptance = json.loads((root / 'stage5_final_acceptance_assessment_v0_6.json').read_text())
+          assert acceptance['criteria_passed'] == 30
+          assert acceptance['stage5_closed'] is True
+          PY
+
+      - name: Build deterministic v0.6 package and evidence archive twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/validation/stage5_v06_full_reconciliation"
+          V05_ROOT="$(cat "$RUNNER_TEMP/stage5_v06/input/v05_root.txt")"
+          EVIDENCE="$RUNNER_TEMP/stage5_v06/evidence"
+          rm -rf "$EVIDENCE/working"
+          python3 "$ROOT/reconcile_v2.py" package \
+            --evidence "$EVIDENCE" \
+            --source-root "$ROOT" \
+            --package-root "$V05_ROOT" \
+            --baseline-zip "$RUNNER_TEMP/stage5_v06/input/politica_stage5_legislation_sync_v0_5.zip" \
+            --final "$EVIDENCE/final" \
+            | tee "$EVIDENCE/deterministic_packaging_stdout.log"
+          grep -q STAGE5_V0_6_DETERMINISTIC_PACKAGING_PASS "$EVIDENCE/deterministic_packaging_stdout.log"
+          unzip -t "$EVIDENCE/final/politica_stage5_legislation_sync_v0_6.zip" \
+            | tee "$EVIDENCE/final/v06_package_unzip_test.log"
+          unzip -t "$EVIDENCE/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
+            | tee "$EVIDENCE/final/v06_evidence_unzip_test.log"
+
+      - name: Publish run summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/stage5_v06/evidence"
+          python3 - "$EVIDENCE" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          final = json.loads((root / 'final_reconciliation_result.json').read_text())
+          package = json.loads((root / 'final/package_result.json').read_text())
+          print('# Stage 5 v0.6 full reconciliation')
+          print()
+          print(f"Status: {final['status']}")
+          print(f"Source observations: {final['reconciliation']['source_observation_count']:,}")
+          print(f"Unique governed identities: {final['reconciliation']['source_unique_identity_count']:,}")
+          print(f"Canonical matches: {final['reconciliation']['matched_identifier_count']:,}")
+          print(f"Source-only future ingestion candidates: {final['reconciliation']['source_only_identifier_count']:,}")
+          print(f"Review-required discrepancies: {final['reconciliation']['review_required_count']:,}")
+          print(f"S5-AC-019: {final['s5_ac_019']}")
+          print('S5-AC-030: passed')
+          print('Stage 5: completed and accepted')
+          print('Stage 6: authorised, not commenced')
+          print()
+          print(f"v0.6 package SHA-256: `{package['source_package']['sha256']}`")
+          print(f"v0.6 evidence SHA-256: `{package['evidence_archive']['sha256']}`")
+          PY
+
+      - name: Upload deterministic v0.6 source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-source-package
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_legislation_sync_v0_6.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload deterministic v0.6 reconciliation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-full-reconciliation-evidence
+          path: |
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip
+            ${{ runner.temp }}/stage5_v06/evidence/final/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+            ${{ runner.temp }}/stage5_v06/evidence/final/package_result.json
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload diagnostic evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-diagnostic-failure-evidence
+          path: ${{ runner.temp }}/stage5_v06/
+          compression-level: 6
+          retention-days: 90
+          if-no-files-found: warn
