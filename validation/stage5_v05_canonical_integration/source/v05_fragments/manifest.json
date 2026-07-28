@@ -1,0 +1,61 @@
+{
+  "files": {
+    "assertions": {
+      "chunks": [
+        {
+          "base64_char_count": 1800,
+          "byte_count": 1801,
+          "path": "assertions.0",
+          "sequence": 0,
+          "sha256": "6e886762d124f1c586b8fc9c9a550a4b1e229d772d6b7c5c1439468d040ea733"
+        },
+        {
+          "base64_char_count": 1692,
+          "byte_count": 1693,
+          "path": "assertions.1",
+          "sequence": 1,
+          "sha256": "2fd73a8575afcd7f0bfb883eaf1d19e5ccfbf6f787c134484e56b2a76e941aeb"
+        }
+      ],
+      "combined_base64_char_count": 3492,
+      "decoded_byte_count": 13065,
+      "decoded_sha256": "c09ba15f78f4e7a04bcec401f03f7f29abc24509b975ef258a03cde4739a3ebd"
+    },
+    "fixture": {
+      "chunks": [
+        {
+          "base64_char_count": 2300,
+          "byte_count": 2301,
+          "path": "fixture.0",
+          "sequence": 0,
+          "sha256": "91495a685ead3cb3cde271869993ded31351ccbeb4efea29bed436216b6741fd"
+        },
+        {
+          "base64_char_count": 2300,
+          "byte_count": 2301,
+          "path": "fixture.1",
+          "sequence": 1,
+          "sha256": "38280ee7b216e6fd878c14cccb60c16fb94643703756955d246b89768745c854"
+        },
+        {
+          "base64_char_count": 2300,
+          "byte_count": 2301,
+          "path": "fixture.2",
+          "sequence": 2,
+          "sha256": "3906b00f757e1cc2db9ec524344629b1b130ee0976ea84678786457b3e05256f"
+        },
+        {
+          "base64_char_count": 2300,
+          "byte_count": 2301,
+          "path": "fixture.3",
+          "sequence": 3,
+          "sha256": "084ef55d01418ef1a130300db31cd3f8e03c3c832c063678dbf853f20d0d6fdf"
+        }
+      ],
+      "combined_base64_char_count": 9200,
+      "decoded_byte_count": 57644,
+      "decoded_sha256": "a5669eb5168c011e17d2756ac5e89b675c04efb0e905707e373cb1dad3a08531"
+    }
+  },
+  "version": 1
+}
