@@ -1,0 +1,60 @@
+name: Stage 5 v0.5 fragment decode diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode retained transfer fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=validation/stage5_v05_canonical_integration/source/v05_fragments
+          OUT=validation/stage5_v05_fragment_decode_diagnostic
+          mkdir -p "$OUT"
+          python - "$ROOT" "$OUT/result.json" <<'PY'
+          from pathlib import Path
+          import base64, gzip, hashlib, json, sys, traceback
+          root = Path(sys.argv[1])
+          out = Path(sys.argv[2])
+          result = {}
+          for key, names in {
+              'fixture': [f'fixture.{i}' for i in range(4)],
+              'assertions': [f'assertions.{i}' for i in range(2)],
+          }.items():
+              encoded = ''.join((root / name).read_text(encoding='ascii').strip() for name in names)
+              row = {
+                  'base64_char_count': len(encoded),
+                  'encoded_sha256': hashlib.sha256(encoded.encode('ascii')).hexdigest(),
+              }
+              try:
+                  compressed = base64.b64decode(encoded, validate=True)
+                  row['compressed_byte_count'] = len(compressed)
+                  row['compressed_sha256'] = hashlib.sha256(compressed).hexdigest()
+                  decoded = gzip.decompress(compressed)
+                  row['decoded_byte_count'] = len(decoded)
+                  row['decoded_sha256'] = hashlib.sha256(decoded).hexdigest()
+                  row['status'] = 'decoded'
+              except Exception as exc:
+                  row['status'] = 'failed'
+                  row['error_type'] = type(exc).__name__
+                  row['error'] = str(exc)
+                  row['traceback'] = traceback.format_exc()
+              result[key] = row
+          out.write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage5-v05-fragment-decode-diagnostic
+          path: validation/stage5_v05_fragment_decode_diagnostic/result.json
+          if-no-files-found: error
