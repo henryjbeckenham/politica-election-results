@@ -1,0 +1,162 @@
+name: Stage 5 v0.6 key-partition source probe
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute bounded read-only key partition probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=validation/stage5_v06_full_reconciliation/key_partition_probe
+          mkdir -p "$OUT/raw"
+          python - "$OUT" <<'PY'
+          from __future__ import annotations
+          import hashlib, json, sys, time, urllib.error, urllib.parse, urllib.request
+          from pathlib import Path
+
+          out = Path(sys.argv[1])
+          raw = out / 'raw'
+          host = 'api.prod.legislation.gov.au'
+          base = f'https://{host}'
+          max_bytes = 8 * 1024 * 1024
+          timeout = 60
+          calls = []
+
+          def write_json(path, value):
+              path.write_text(json.dumps(value, indent=2, sort_keys=True, default=str) + '\n', encoding='utf-8')
+
+          def fetch(label, path, params=None, accept='application/json'):
+              query = '' if not params else '?' + urllib.parse.urlencode(params)
+              url = base + path + query
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != 'https' or parsed.hostname != host:
+                  raise SystemExit(f'unapproved request: {url}')
+              req = urllib.request.Request(url, method='GET', headers={
+                  'Accept': accept,
+                  'User-Agent': 'Politica-Stage5-v0.6-key-partition-probe/1.0',
+              })
+              started = time.monotonic()
+              body = b''
+              status = None
+              headers = {}
+              error = None
+              final_url = url
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as response:
+                      body = response.read(max_bytes + 1)
+                      if len(body) > max_bytes:
+                          raise RuntimeError('response size ceiling exceeded')
+                      status = int(response.status)
+                      headers = dict(response.headers.items())
+                      final_url = response.geturl()
+              except urllib.error.HTTPError as exc:
+                  status = int(exc.code)
+                  headers = dict(exc.headers.items()) if exc.headers else {}
+                  body = exc.read(max_bytes + 1)
+                  error = f'HTTP {exc.code}: {exc.reason}'
+              except Exception as exc:
+                  error = f'{type(exc).__name__}: {exc}'
+              digest = hashlib.sha256(body).hexdigest()
+              body_file = raw / f'{label}_{digest[:12]}.body'
+              headers_file = raw / f'{label}_{digest[:12]}.headers.json'
+              body_file.write_bytes(body)
+              write_json(headers_file, headers)
+              parsed_json = None
+              try:
+                  parsed_json = json.loads(body.decode('utf-8')) if body else None
+              except Exception:
+                  parsed_json = None
+              row = {
+                  'label': label,
+                  'method': 'GET',
+                  'requested_url': url,
+                  'final_url': final_url,
+                  'request_body': None,
+                  'status': status,
+                  'error': error,
+                  'duration_ms': int((time.monotonic() - started) * 1000),
+                  'response_sha256': digest,
+                  'byte_count': len(body),
+                  'body_file': str(body_file.relative_to(out)),
+                  'headers_file': str(headers_file.relative_to(out)),
+              }
+              if parsed_json is not None:
+                  row['json'] = parsed_json
+              calls.append(row)
+              time.sleep(1)
+              return row
+
+          select_versions = 'titleId,start,retrospectiveStart,registerId,compilationNumber'
+          order_versions = 'titleId,start,retrospectiveStart,registerId,compilationNumber'
+          select_documents = 'titleId,start,retrospectiveStart,rectificationVersionNumber,type,uniqueTypeNumber,volumeNumber,format'
+          order_documents = 'titleId,start,retrospectiveStart,rectificationVersionNumber,type,uniqueTypeNumber,volumeNumber,format'
+          boundary = 'F2021L01067'
+          queries = [
+              ('version_boundary_count', '/v1/Versions/$count', {'$filter': f"titleId eq '{boundary}'"}, 'text/plain'),
+              ('version_boundary_rows', '/v1/Versions', {'$filter': f"titleId eq '{boundary}'", '$select': select_versions, '$orderby': order_versions, '$top': 100, '$skip': 0}, 'application/json'),
+              ('version_after_count', '/v1/Versions/$count', {'$filter': f"titleId gt '{boundary}'"}, 'text/plain'),
+              ('version_after_page', '/v1/Versions', {'$filter': f"titleId gt '{boundary}'", '$select': select_versions, '$orderby': order_versions, '$top': 100, '$skip': 0}, 'application/json'),
+              ('version_prefix_count', '/v1/Versions/$count', {'$filter': "startswith(titleId,'F2021')"}, 'text/plain'),
+              ('document_prefix_count', '/v1/Documents/$count', {'$filter': "startswith(titleId,'F2021')"}, 'text/plain'),
+              ('document_prefix_page', '/v1/Documents', {'$filter': "startswith(titleId,'F2021')", '$select': select_documents, '$orderby': order_documents, '$top': 100, '$skip': 0}, 'application/json'),
+              ('document_range_count', '/v1/Documents/$count', {'$filter': "titleId ge 'F2021' and titleId lt 'F2022'"}, 'text/plain'),
+              ('version_null_title_count', '/v1/Versions/$count', {'$filter': 'titleId eq null'}, 'text/plain'),
+              ('document_null_title_count', '/v1/Documents/$count', {'$filter': 'titleId eq null'}, 'text/plain'),
+          ]
+          for label, path, params, accept in queries:
+              fetch(label, path, params, accept)
+
+          summaries = {}
+          for row in calls:
+              body = (out / row['body_file']).read_text(encoding='utf-8', errors='replace').strip()
+              payload = row.get('json')
+              values = payload.get('value', []) if isinstance(payload, dict) else []
+              summaries[row['label']] = {
+                  'status': row['status'],
+                  'error': row['error'],
+                  'duration_ms': row['duration_ms'],
+                  'text': body if body.isdigit() else None,
+                  'parsed_integer': int(body) if body.isdigit() else None,
+                  'value_count': len(values) if isinstance(values, list) else None,
+                  'sample': values[:5] if isinstance(values, list) else None,
+                  'response_sha256': row['response_sha256'],
+                  'byte_count': row['byte_count'],
+                  'requested_url': row['requested_url'],
+              }
+          result = {
+              'status': 'completed',
+              'request_count': len(calls),
+              'request_ceiling': 10,
+              'max_concurrency': 1,
+              'timeout_seconds': timeout,
+              'response_size_ceiling_bytes': max_bytes,
+              'methods': ['GET'],
+              'request_bodies': [None],
+              'boundary_title_id': boundary,
+              'summaries': summaries,
+          }
+          write_json(out / 'key_partition_probe_result.json', result)
+          (out / 'request_manifest.jsonl').write_text(
+              ''.join(json.dumps({k:v for k,v in row.items() if k != 'json'}, sort_keys=True) + '\n' for row in calls),
+              encoding='utf-8',
+          )
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-key-partition-probe
+          path: validation/stage5_v06_full_reconciliation/key_partition_probe/
+          if-no-files-found: error
+          retention-days: 90
