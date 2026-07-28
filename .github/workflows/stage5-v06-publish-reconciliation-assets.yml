@@ -1,0 +1,96 @@
+name: Stage 5 v0.6 publish reconciliation assets
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stage5-v06-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Wait for successful v3 reconciliation run on the same commit
+        id: find
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            run_json="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow 'Stage 5 v0.6 final full reconciliation v3' \
+              --branch '${{ github.head_ref }}' \
+              --limit 20 \
+              --json databaseId,headSha,status,conclusion,createdAt)"
+            run_id="$(python3 - <<'PY' "$run_json" "$TARGET_HEAD_SHA"
+          import json,sys
+          rows=json.loads(sys.argv[1]); sha=sys.argv[2]
+          matches=[r for r in rows if r.get('headSha')==sha and r.get('status')=='completed' and r.get('conclusion')=='success']
+          matches.sort(key=lambda r:r.get('createdAt',''), reverse=True)
+          print(matches[0]['databaseId'] if matches else '')
+          PY
+            )"
+            if test -n "$run_id"; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'No successful reconciliation run was found for the current head commit.' >&2
+          exit 1
+
+      - name: Download exact reconciliation artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package evidence
+          gh run download '${{ steps.find.outputs.run_id }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --name politica-stage5-v0-6-source-package \
+            --dir package
+          gh run download '${{ steps.find.outputs.run_id }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --name politica-stage5-v0-6-full-reconciliation-evidence \
+            --dir evidence
+          test -f package/politica_stage5_legislation_sync_v0_6.zip
+          test -f package/politica_stage5_legislation_sync_v0_6.zip.sha256
+          test -f evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip
+          test -f evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+          (cd package && sha256sum --check politica_stage5_legislation_sync_v0_6.zip.sha256)
+          (cd evidence && sha256sum --check politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256)
+
+      - name: Publish temporary governed-transfer release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="stage5-v0.6-reconciliation-${{ steps.find.outputs.run_id }}"
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes >/dev/null 2>&1 || true
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_HEAD_SHA" \
+            --title "Politica Stage 5 v0.6 reconciliation transfer" \
+            --notes "Temporary governed transfer of the accepted Stage 5 v0.6 source package and full reconciliation evidence. Diagnostic branch only. Do not merge into the election-results baseline." \
+            --prerelease \
+            package/politica_stage5_legislation_sync_v0_6.zip \
+            package/politica_stage5_legislation_sync_v0_6.zip.sha256 \
+            evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip \
+            evidence/politica_stage5_v0_6_full_reconciliation_evidence.zip.sha256
+          echo "$tag" | tee stage5_v06_release_tag.txt
+
+      - name: Upload transfer manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: politica-stage5-v0-6-transfer-manifest
+          path: stage5_v06_release_tag.txt
+          retention-days: 90
