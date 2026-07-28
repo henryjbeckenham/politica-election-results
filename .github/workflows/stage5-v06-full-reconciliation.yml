@@ -50,6 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           ROOT=validation/stage5_v06_full_reconciliation
+          command -v patch >/dev/null
           python "$ROOT/reconstruct_sources.py" \
             --source "$ROOT/source" \
             --output "$ROOT" \
@@ -59,12 +60,18 @@ jobs:
             "$ROOT/apply_governed_baseline_correction.py" \
             | sha256sum -c -
           python "$ROOT/apply_governed_baseline_correction.py"
+          printf '%s  %s\n' \
+            '035b4ba5d3f2cee24dd2f605abc86b16dd1e561f74d535cad77c20da60b4a79f' \
+            "$ROOT/apply_governed_duplicate_observation_patch.py" \
+            | sha256sum -c -
+          python "$ROOT/apply_governed_duplicate_observation_patch.py"
           python -m py_compile \
             "$ROOT/full_reconciliation.py" \
             "$ROOT/test_full_reconciliation.py" \
             "$ROOT/finalize_reconciliation.py" \
             "$ROOT/build_deterministic_zip.py" \
-            "$ROOT/apply_governed_baseline_correction.py"
+            "$ROOT/apply_governed_baseline_correction.py" \
+            "$ROOT/apply_governed_duplicate_observation_patch.py"
           bash -n "$ROOT/run_full_reconciliation.sh"
 
       - name: Execute Stage 5 v0.6 full reconciliation
@@ -85,6 +92,9 @@ jobs:
             cp "$ROOT/source_reconstruction.json" "$ROOT/evidence/source_reconstruction.json"
             if test -f "$ROOT/governed_baseline_correction.json"; then
               cp "$ROOT/governed_baseline_correction.json" "$ROOT/evidence/governed_baseline_correction.json"
+            fi
+            if test -f "$ROOT/governed_duplicate_observation_patch.json"; then
+              cp "$ROOT/governed_duplicate_observation_patch.json" "$ROOT/evidence/governed_duplicate_observation_patch.json"
             fi
             python "$ROOT/build_deterministic_zip.py" \
               --source "$ROOT/evidence" \
