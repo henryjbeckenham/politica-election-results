@@ -1,0 +1,97 @@
+        item_hash = canonical_json_hash(item)
+        with self._connect() as connection:
+            existing = connection.execute(
+                "SELECT item_hash,first_seen_run_id FROM stage5_runtime.candidates WHERE candidate_identity=%s",
+                (identity,),
+            ).fetchone()
+            outcome = "created" if existing is None else ("unchanged" if existing[0] == item_hash else "changed")
+            first_seen = run_id if existing is None else existing[1]
+            connection.execute(
+                """
+                INSERT INTO stage5_runtime.candidates
+                    (candidate_identity,entity_type,external_identifier,source_url,observed_fingerprint,
+                     item_hash,first_seen_run_id,last_seen_run_id,item)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (candidate_identity) DO UPDATE SET
+                    source_url=excluded.source_url,
+                    observed_fingerprint=excluded.observed_fingerprint,
+                    item_hash=excluded.item_hash,
+                    last_seen_run_id=excluded.last_seen_run_id,
+                    item=excluded.item
+                """,
+                (
+                    identity,
+                    candidate.entity_type,
+                    candidate.external_identifier,
+                    candidate.source_url,
+                    candidate.observed_fingerprint,
+                    item_hash,
+                    first_seen,
+                    run_id,
+                    self._Jsonb(item),
+                ),
+            )
+        return outcome
+
+    def put_raw_capture(self, record: dict[str, Any]) -> bool:
+        if self.evidence_root is None:
+            raise RuntimeError("PostgreSQL raw capture requires an evidence root")
+        body_path = self.evidence_root / record["body_file"]
+        headers_path = self.evidence_root / record["headers_file"]
+        body = body_path.read_bytes()
+        headers = json.loads(headers_path.read_text(encoding="utf-8"))
+        body_sha256 = hashlib.sha256(body).hexdigest()
+        if body_sha256 != record["response_sha256"]:
+            raise ValueError("raw capture body hash does not match retained evidence record")
+        if len(body) != int(record["byte_count"]):
+            raise ValueError("raw capture byte count does not match retained evidence record")
+        identity = canonical_json_hash(
+            {
+                "requested_url": record["requested_url"],
+                "status": record["status"],
+                "response_sha256": record["response_sha256"],
+            }
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO stage5_runtime.raw_captures
+                    (capture_identity,record,headers,body,body_sha256,byte_count)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (capture_identity) DO NOTHING
+                """,
+                (
+                    identity,
+                    self._Jsonb(record),
+                    self._Jsonb(headers),
+                    body,
+                    body_sha256,
+                    len(body),
+                ),
+            )
+            return cursor.rowcount == 1
+
+    def commit_watermarks(self, watermarks: dict[str, dict[str, Any]]) -> None:
+        with self._connect() as connection:
+            for entity_set, watermark in watermarks.items():
+                run_id = watermark.get("run_id")
+                if not isinstance(run_id, str) or not run_id:
+                    raise ValueError("watermark must retain its originating run id")
+                connection.execute(
+                    """
+                    INSERT INTO stage5_runtime.watermarks (entity_set,run_id,watermark)
+                    VALUES (%s,%s,%s)
+                    ON CONFLICT (entity_set) DO UPDATE SET
+                        run_id=excluded.run_id,
+                        watermark=excluded.watermark
+                    """,
+                    (entity_set, run_id, self._Jsonb(watermark)),
+                )
+
+    def commit_watermark(self, entity_set: str, watermark: dict[str, Any]) -> None:
+        self.commit_watermarks({entity_set: watermark})
+
+    def get_watermark(self, entity_set: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT watermark FROM stage5_runtime.watermarks WHERE entity_set=%s",

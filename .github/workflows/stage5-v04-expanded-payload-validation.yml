@@ -1,0 +1,279 @@
+name: Stage 5 v0.4 bounded expanded payload validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture-expanded-payloads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EVIDENCE: validation/stage5_v04_expanded_payload/evidence
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture bounded official expanded payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/raw"
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+          from typing import Any
+
+          ROOT = Path(os.environ["EVIDENCE"])
+          RAW = ROOT / "raw"
+          BASE = "https://api.prod.legislation.gov.au"
+          API = BASE + "/v1"
+          USER_AGENT = "Politica-Stage5-v0.4-bounded-expanded-validation/1.0"
+          REQUEST_CEILING = 12
+          RESPONSE_CEILING = 10 * 1024 * 1024
+          TIMEOUT = 30
+          requests_used = 0
+          manifest: list[dict[str, Any]] = []
+
+          def canonical(value: Any) -> bytes:
+              return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+          def retain(label: str, url: str) -> tuple[dict[str, Any] | list[Any] | None, dict[str, Any]]:
+              global requests_used
+              requests_used += 1
+              if requests_used > REQUEST_CEILING:
+                  raise SystemExit("bounded request ceiling exceeded")
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != "https" or parsed.hostname != "api.prod.legislation.gov.au":
+                  raise SystemExit(f"unapproved request target: {url}")
+              headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+              req = urllib.request.Request(url, method="GET", headers=headers)
+              started = time.monotonic()
+              status = 0
+              final_url = url
+              response_headers: dict[str, str] = {}
+              body = b""
+              for attempt in range(1, 4):
+                  try:
+                      response = urllib.request.urlopen(req, timeout=TIMEOUT)
+                      status = int(response.status)
+                      final_url = response.geturl()
+                      response_headers = dict(response.headers.items())
+                      body = response.read(RESPONSE_CEILING + 1)
+                      if len(body) > RESPONSE_CEILING:
+                          raise SystemExit(f"response ceiling exceeded for {label}")
+                      break
+                  except urllib.error.HTTPError as exc:
+                      status = int(exc.code)
+                      final_url = exc.geturl()
+                      response_headers = dict(exc.headers.items()) if exc.headers else {}
+                      body = exc.read(RESPONSE_CEILING + 1)
+                      if status in {429, 500, 502, 503, 504} and attempt < 3:
+                          time.sleep(attempt)
+                          continue
+                      break
+                  except urllib.error.URLError:
+                      if attempt == 3:
+                          raise
+                      time.sleep(attempt)
+              duration_ms = int((time.monotonic() - started) * 1000)
+              sha = hashlib.sha256(body).hexdigest()
+              body_name = f"{label}_{sha[:12]}.body"
+              headers_name = f"{label}_{sha[:12]}.headers.json"
+              (RAW / body_name).write_bytes(body)
+              (RAW / headers_name).write_text(json.dumps(response_headers, indent=2, sort_keys=True), encoding="utf-8")
+              row = {
+                  "label": label,
+                  "requested_url": url,
+                  "final_url": final_url,
+                  "method": "GET",
+                  "request_body": None,
+                  "status": status,
+                  "response_sha256": sha,
+                  "byte_count": len(body),
+                  "duration_ms": duration_ms,
+                  "body_file": f"raw/{body_name}",
+                  "headers_file": f"raw/{headers_name}",
+                  "content_type": response_headers.get("Content-Type") or response_headers.get("content-type"),
+              }
+              manifest.append(row)
+              obj = None
+              if body:
+                  try:
+                      obj = json.loads(body.decode("utf-8"))
+                  except Exception:
+                      obj = None
+              return obj, row
+
+          def url(path: str, params: dict[str, str | int] | None = None) -> str:
+              result = API + path
+              if params:
+                  result += "?" + urllib.parse.urlencode(params)
+              return result
+
+          openapi, _ = retain("contract_openapi", BASE + "/swagger/v1/swagger.json")
+          service, _ = retain("contract_service", API + "/")
+          title_base, _ = retain("title_base", url("/Titles/F2016L01916"))
+          title_departments, _ = retain("title_departments", url("/Titles/F2016L01916", {"$expand": "AdministeringDepartments"}))
+          title_scrutiny, _ = retain("title_scrutiny", url("/Titles/F2016L01916", {"$expand": "ParliamentaryScrutiny"}))
+          title_authorised, _ = retain("title_authorised_by", url("/Titles/F2016L01916", {"$expand": "AuthorisedBy"}))
+          title_all, _ = retain("title_all_expanded", url("/Titles/F2016L01916", {"$expand": "AdministeringDepartments,ParliamentaryScrutiny,AuthorisedBy"}))
+          version_base, _ = retain("version_base", url("/Versions", {"$filter": "registerId eq 'F2026C00596'", "$top": 1}))
+          version_documents, _ = retain("version_documents", url("/Versions", {"$filter": "registerId eq 'F2026C00596'", "$expand": "Documents", "$top": 1}))
+          documents, _ = retain("documents_collection", url("/Documents", {"$filter": "registerId eq 'F2026C00596'", "$top": 10}))
+          text_applies, _ = retain("text_applies", url("/TextApplies", {"$filter": "titleId eq 'F2016L01916'", "$top": 20}))
+          departments, _ = retain("departments_sample", url("/Departments", {"$orderby": "name asc", "$top": 5}))
+
+          (ROOT / "request_manifest.jsonl").write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in manifest), encoding="utf-8")
+
+          response_statuses = {row["label"]: row["status"] for row in manifest}
+          status_checks = {label: status == 200 for label, status in response_statuses.items()}
+          if not isinstance(openapi, dict):
+              raise SystemExit("OpenAPI response is not JSON")
+          paths = openapi.get("paths", {})
+          schemas = openapi.get("components", {}).get("schemas", {})
+          title_props = schemas.get("Title", {}).get("properties", {})
+          version_props = schemas.get("Version", {}).get("properties", {})
+          contract_checks = {
+              "path_titles_exact": "/v1/Titles/{key}" in paths,
+              "path_versions_collection": "/v1/Versions" in paths,
+              "path_documents_collection": "/v1/Documents" in paths,
+              "path_departments_collection": "/v1/Departments" in paths,
+              "path_text_applies_collection": "/v1/TextApplies" in paths,
+              "title_administering_departments": "administeringDepartments" in title_props,
+              "title_parliamentary_scrutiny": "parliamentaryScrutiny" in title_props,
+              "title_authorised_by": "authorisedBy" in title_props,
+              "title_status_history": "statusHistory" in title_props,
+              "title_name_history": "nameHistory" in title_props,
+              "version_documents": "documents" in version_props,
+              "version_reasons": "reasons" in version_props,
+              "document_schema": "Document" in schemas,
+              "department_schema": "Department" in schemas,
+              "text_applies_schema": "TextApplies" in schemas,
+              "reason_schema": "ReasonForVersion" in schemas,
+          }
+
+          def envelope_values(obj: Any) -> list[dict[str, Any]]:
+              if isinstance(obj, dict) and isinstance(obj.get("value"), list):
+                  return [x for x in obj["value"] if isinstance(x, dict)]
+              return []
+
+          version_rows = envelope_values(version_documents)
+          document_rows = envelope_values(documents)
+          text_applies_rows = envelope_values(text_applies)
+          department_rows = envelope_values(departments)
+          title_obj = title_all if isinstance(title_all, dict) else {}
+          version_obj = version_rows[0] if version_rows else {}
+
+          field_observations = {
+              "title": {
+                  "external_identifier": title_obj.get("id"),
+                  "fields_present": sorted(title_obj.keys()),
+                  "name_history_count": len(title_obj.get("nameHistory") or []),
+                  "status_history_count": len(title_obj.get("statusHistory") or []),
+                  "administering_departments_count": len(title_obj.get("administeringDepartments") or []),
+                  "parliamentary_scrutiny_count": len(title_obj.get("parliamentaryScrutiny") or []),
+                  "authorised_by_count": len(title_obj.get("authorisedBy") or []),
+                  "text_applies_embedded_count": len(title_obj.get("textApplies") or []),
+                  "has_commencement_signal": "hasCommencedUnincorporatedAmendments" in title_obj,
+              },
+              "version": {
+                  "register_id": version_obj.get("registerId"),
+                  "fields_present": sorted(version_obj.keys()),
+                  "reason_count": len(version_obj.get("reasons") or []),
+                  "document_expansion_count": len(version_obj.get("documents") or []),
+              },
+              "documents_collection_count": len(document_rows),
+              "text_applies_collection_count": len(text_applies_rows),
+              "departments_sample_count": len(department_rows),
+          }
+
+          canonical_mapping = {
+              "ruleset_version": "stage5-v0.4-live-expanded-1",
+              "source_system": "Federal Register of Legislation public API",
+              "title_external_identifier": "F2016L01916",
+              "version_external_identifier": "F2026C00596",
+              "mappings": [
+                  {"source_label": "title_all_expanded", "source_path": "$.id", "target": "bls_core.external_identifiers.external_identifier", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.name", "target": "bls_legislation.legislation_titles.official_name", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.collection", "target": "bls_legislation.legislation_titles.legislation_collection_source_value", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.subCollection", "target": "bls_legislation.legislation_titles.legislation_subcollection_source_value", "support": "mapped_when_present"},
+                  {"source_label": "title_all_expanded", "source_path": "$.makingDate", "target": "bls_legislation.legislation_titles.making_at", "support": "mapped_when_present"},
+                  {"source_label": "title_all_expanded", "source_path": "$.asMadeRegisteredAt", "target": "bls_legislation.legislation_titles.as_made_registered_at", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.status", "target": "bls_legislation.legislation_titles.current_source_status_value", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.nameHistory[*]", "target": "bls_legislation.legislation_title_names", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.statusHistory[*]", "target": "bls_legislation.legislation_status_history", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.administeringDepartments[*]", "target": "bls_legislation.departments + bls_legislation.legislation_administering_departments", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.parliamentaryScrutiny[*]", "target": "bls_legislation.scrutiny_events", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.authorisedBy[*]", "target": "bls_legislation.legislative_relationships", "support": "mapped_when_identifiers_resolve"},
+                  {"source_label": "version_documents", "source_path": "$.value[0]", "target": "bls_legislation.legislation_versions", "support": "mapped"},
+                  {"source_label": "version_documents", "source_path": "$.value[0].reasons[*]", "target": "bls_legislation.legislation_version_reasons", "support": "mapped"},
+                  {"source_label": "version_documents", "source_path": "$.value[0].documents[*]", "target": "bls_legislation.legislation_documents", "support": "mapped"},
+                  {"source_label": "text_applies", "source_path": "$.value[*]", "target": "bls_legislation.text_applies_determinations", "support": "mapped"},
+                  {"source_label": "title_all_expanded", "source_path": "$.hasCommencedUnincorporatedAmendments", "target": "bls_legislation.commencement_events", "support": "signal_only_no_event_inference"}
+              ],
+              "field_provenance_required": True,
+              "field_provenance_target": "bls_audit.field_provenance",
+              "raw_evidence_target": "bls_source.raw_captures + bls_source.record_evidence"
+          }
+
+          result = {
+              "status": "passed" if all(status_checks.values()) and all(contract_checks.values()) else "failed",
+              "bounded_read_only": {
+                  "requests_used": requests_used,
+                  "request_ceiling": REQUEST_CEILING,
+                  "methods": sorted({row["method"] for row in manifest}),
+                  "request_bodies": sorted({str(row["request_body"]) for row in manifest}),
+                  "hosts": sorted({urllib.parse.urlparse(row["requested_url"]).hostname for row in manifest})
+              },
+              "response_status_checks": status_checks,
+              "contract_checks": contract_checks,
+              "contract": {
+                  "openapi_canonical_json_sha256": hashlib.sha256(canonical(openapi)).hexdigest(),
+                  "openapi_raw_sha256": next(row["response_sha256"] for row in manifest if row["label"] == "contract_openapi"),
+                  "service_raw_sha256": next(row["response_sha256"] for row in manifest if row["label"] == "contract_service"),
+                  "path_count": len(paths),
+                  "schema_count": len(schemas)
+              },
+              "field_observations": field_observations,
+              "payload_hashes": {row["label"]: row["response_sha256"] for row in manifest},
+              "limitations": [
+                  "This is a bounded representative payload test, not a complete historical crawl.",
+                  "A boolean commencement signal does not establish a commencement event date or provision scope.",
+                  "Canonical integration remains restricted to disposable validation infrastructure."
+              ]
+          }
+          (ROOT / "live_expanded_result.json").write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+          (ROOT / "canonical_mapping_manifest.json").write_text(json.dumps(canonical_mapping, indent=2, sort_keys=True), encoding="utf-8")
+          (ROOT / "field_observations.json").write_text(json.dumps(field_observations, indent=2, sort_keys=True), encoding="utf-8")
+          print(json.dumps(result, indent=2, sort_keys=True))
+          if result["status"] != "passed":
+              raise SystemExit("bounded expanded-payload validation did not pass")
+          PY
+
+      - name: Package exact evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v04_expanded_payload/final
+          (cd validation/stage5_v04_expanded_payload && zip -qr final/stage5-v04-expanded-payload-evidence.zip evidence)
+          sha256sum validation/stage5_v04_expanded_payload/final/stage5-v04-expanded-payload-evidence.zip > validation/stage5_v04_expanded_payload/final/stage5-v04-expanded-payload-evidence.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v04-expanded-payload-evidence
+          path: validation/stage5_v04_expanded_payload/final/
+          if-no-files-found: error

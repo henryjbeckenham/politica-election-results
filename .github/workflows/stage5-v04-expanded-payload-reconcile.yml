@@ -1,0 +1,123 @@
+name: Stage 5 v0.4 expanded payload evidence reconciliation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_ARTIFACT_ID: '8655056988'
+      WORK: validation/stage5_v04_expanded_payload_reconciled
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download retained diagnostic evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK/download" "$WORK/evidence"
+          curl --fail --location --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip" \
+            -o "$WORK/download/artifact.zip"
+          unzip -q "$WORK/download/artifact.zip" -d "$WORK/download/outer"
+          NESTED="$(find "$WORK/download/outer" -name 'stage5-v04-expanded-payload-evidence.zip' -type f -print -quit)"
+          test -n "$NESTED"
+          unzip -q "$NESTED" -d "$WORK/evidence"
+
+      - name: Reconcile documented live limitation and accepted payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json, os, urllib.parse
+
+          root = Path(os.environ['WORK']) / 'evidence' / 'evidence'
+          rows = [json.loads(line) for line in (root / 'request_manifest.jsonl').read_text().splitlines()]
+          by_label = {row['label']: row for row in rows}
+          expected = {label: 200 for label in by_label}
+          expected['version_documents'] = 400
+          status_checks = {label: by_label[label]['status'] == status for label, status in expected.items()}
+          version_error = (root / by_label['version_documents']['body_file']).read_text(errors='replace')
+          expand_limit = (
+              by_label['version_documents']['status'] == 400
+              and "Query option 'Expand' is not allowed" in version_error
+          )
+          safety = {
+              'request_count_12': len(rows) == 12,
+              'get_only': {row['method'] for row in rows} == {'GET'},
+              'no_request_bodies': all(row['request_body'] is None for row in rows),
+              'approved_host_only': all(
+                  urllib.parse.urlparse(row['requested_url']).hostname == 'api.prod.legislation.gov.au'
+                  for row in rows
+              ),
+          }
+          old = json.loads((root / 'live_expanded_result.json').read_text())
+          observations = json.loads((root / 'field_observations.json').read_text())
+          version_payload = json.loads((root / by_label['version_base']['body_file']).read_text())['value'][0]
+          observations['version'] = {
+              'register_id': version_payload['registerId'],
+              'reason_count': len(version_payload.get('reasons') or []),
+              'documents_retrieval': 'separate_documents_collection',
+              'documents_collection_count': observations['documents_collection_count'],
+          }
+          result = {
+              'status': 'passed' if all(status_checks.values()) and expand_limit and all(safety.values()) else 'failed',
+              'source_run_id': 30271654843,
+              'source_artifact_id': int(os.environ['SOURCE_ARTIFACT_ID']),
+              'source_artifact_digest': 'sha256:50b60a2de5f81065b58f0d64f7ce7c96c15e0918d178ab9a9f3df437e46ee51d',
+              'status_checks': status_checks,
+              'safety_checks': safety,
+              'version_documents_expand': {
+                  'classification': 'unsupported_query_option',
+                  'http_status': 400,
+                  'message_matched': expand_limit,
+                  'approved_alternative': '/v1/Documents filtered by registerId',
+                  'alternative_result_count': observations['documents_collection_count'],
+              },
+              'contract': old['contract'],
+              'contract_checks': old['contract_checks'],
+              'field_observations': observations,
+              'accepted_mapping_manifest': 'canonical_mapping_manifest.json',
+              'limitations': [
+                  'Representative bounded validation only; not a complete historical crawl.',
+                  'Version.documents exists in the schema but $expand=Documents is not enabled on /v1/Versions.',
+                  'A commencement boolean remains a signal only and cannot create a commencement event.',
+                  'Canonical writes remain restricted to disposable validation infrastructure.',
+              ],
+          }
+          (root / 'reconciled_result.json').write_text(json.dumps(result, indent=2, sort_keys=True))
+          (root / 'field_observations_reconciled.json').write_text(json.dumps(observations, indent=2, sort_keys=True))
+          print(json.dumps(result, indent=2, sort_keys=True))
+          if result['status'] != 'passed':
+              raise SystemExit('expanded payload evidence reconciliation failed')
+          PY
+
+      - name: Package accepted evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK/final"
+          (cd "$WORK/evidence" && zip -qr "../final/stage5-v04-expanded-payload-reconciled-evidence.zip" evidence)
+          sha256sum "$WORK/final/stage5-v04-expanded-payload-reconciled-evidence.zip" > "$WORK/final/stage5-v04-expanded-payload-reconciled-evidence.sha256"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v04-expanded-payload-reconciled-evidence
+          path: validation/stage5_v04_expanded_payload_reconciled/final/
+          if-no-files-found: error

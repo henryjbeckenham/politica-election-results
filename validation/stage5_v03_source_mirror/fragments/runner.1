@@ -1,0 +1,81 @@
+                checkpoint_data = self.store.get_checkpoint(run_id, spec.entity_set)
+                skip = int(checkpoint_data["cursor"]) if checkpoint_data and checkpoint_data["cursor"] else 0
+                completed_pages = int(checkpoint_data["completed_pages"]) if checkpoint_data else 0
+                candidate_count = int(checkpoint_data["candidate_count"]) if checkpoint_data else 0
+                if checkpoint_data:
+                    checkpoint = RunCheckpoint(
+                        run_id=checkpoint_data["run_id"],
+                        entity_set=checkpoint_data["entity_set"],
+                        partition=int(checkpoint_data["partition"]),
+                        cursor=checkpoint_data["cursor"],
+                        completed_pages=completed_pages,
+                        candidate_count=candidate_count,
+                        updated_at=datetime.fromisoformat(checkpoint_data["updated_at"]),
+                        configuration_hash=checkpoint_data["configuration_hash"],
+                        contract_hash=checkpoint_data["contract_hash"],
+                    )
+                    validate_checkpoint(
+                        checkpoint,
+                        expected_configuration_hash=self.config.hash,
+                        expected_contract_hash=self.contract_hash,
+                        partition_count=int(sync["reconciliation_partition_count"]),
+                    )
+
+                while True:
+                    url = build_collection_url(
+                        collector["base_url"],
+                        spec,
+                        window,
+                        page_size=int(collector["page_size"]),
+                        skip=skip,
+                    )
+                    response = self.transport.get(url)
+                    record = self.evidence.retain(
+                        f"{spec.entity_set.lower()}_skip_{skip}",
+                        response,
+                        request_parameters={"skip": skip, "page_size": int(collector["page_size"]), "window": window.as_dict()},
+                    )
+                    self.store.put_raw_capture(record)
+                    if response.status != 200:
+                        raise RuntimeError(f"{spec.entity_set} request returned HTTP {response.status}")
+                    values = parse_collection_payload(response.body)
+                    validate_collection_order(spec, values)
+                    pages_processed += 1
+                    for item in values:
+                        metrics.discovered += 1
+                        metrics.fetched += 1
+                        candidate = candidate_from_item(spec, item, url)
+                        outcome = self.store.upsert_candidate(candidate, item, run_id)
+                        if outcome == "created":
+                            metrics.created += 1
+                        elif outcome == "unchanged":
+                            metrics.unchanged += 1
+                        else:
+                            metrics.changed += 1
+                        candidate_count += 1
+                    skip += len(values)
+                    completed_pages += 1
+                    checkpoint = RunCheckpoint(
+                        run_id=run_id,
+                        entity_set=spec.entity_set,
+                        partition=0,
+                        cursor=str(skip),
+                        completed_pages=completed_pages,
+                        candidate_count=candidate_count,
+                        updated_at=datetime.now(timezone.utc),
+                        configuration_hash=self.config.hash,
+                        contract_hash=self.contract_hash,
+                    )
+                    self.store.put_checkpoint(checkpoint)
+                    if fail_after_pages is not None and pages_processed >= fail_after_pages:
+                        raise RuntimeError("injected deterministic failure")
+                    if interrupt_after_pages is not None and pages_processed >= interrupt_after_pages:
+                        raise IntentionalInterruption("injected deterministic interruption")
+                    if len(values) < int(collector["page_size"]):
+                        break
+
+                watermark = safe_output_watermark(
+                    run_status="succeeded",
+                    all_partitions_complete=True,
+                    all_pages_complete=True,
+                    unresolved_fatal_failures=0,
