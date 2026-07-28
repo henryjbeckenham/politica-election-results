@@ -1,0 +1,59 @@
+name: Stage 5 v0.6 Document partition ordering probe
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute bounded read-only ordering probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=validation/stage5_v06_full_reconciliation/document_order_probe
+          mkdir -p "$OUT/raw"
+          python - "$OUT" <<'PY'
+          import hashlib, json, sys, time, urllib.error, urllib.parse, urllib.request
+          from pathlib import Path
+          out=Path(sys.argv[1]); raw=out/'raw'; host='api.prod.legislation.gov.au'; base=f'https://{host}'
+          select='titleId,start,retrospectiveStart,rectificationVersionNumber,type,uniqueTypeNumber,volumeNumber,format'
+          order='titleId,start,rectificationVersionNumber,type,format'
+          calls=[]
+          def write_json(p,v): p.write_text(json.dumps(v,indent=2,sort_keys=True,default=str)+'\n',encoding='utf-8')
+          def fetch(label,skip):
+              params={'$filter':"startswith(titleId,'F2021')",'$select':select,'$orderby':order,'$top':100,'$skip':skip}
+              url=base+'/v1/Documents?'+urllib.parse.urlencode(params)
+              req=urllib.request.Request(url,method='GET',headers={'Accept':'application/json','User-Agent':'Politica-Stage5-v0.6-document-order-probe/1.0'})
+              started=time.monotonic(); body=b''; status=None; headers={}; error=None
+              try:
+                  with urllib.request.urlopen(req,timeout=60) as response:
+                      body=response.read(8*1024*1024+1); status=int(response.status); headers=dict(response.headers.items())
+              except urllib.error.HTTPError as exc:
+                  status=int(exc.code); headers=dict(exc.headers.items()) if exc.headers else {}; body=exc.read(8*1024*1024+1); error=f'HTTP {exc.code}: {exc.reason}'
+              except Exception as exc: error=f'{type(exc).__name__}: {exc}'
+              digest=hashlib.sha256(body).hexdigest(); (raw/f'{label}_{digest[:12]}.body').write_bytes(body); write_json(raw/f'{label}_{digest[:12]}.headers.json',headers)
+              values=[]
+              try: values=json.loads(body.decode()).get('value',[])
+              except Exception: pass
+              row={'label':label,'skip':skip,'status':status,'error':error,'duration_ms':int((time.monotonic()-started)*1000),'response_sha256':digest,'byte_count':len(body),'value_count':len(values),'first':values[0] if values else None,'last':values[-1] if values else None,'requested_url':url}
+              calls.append(row); time.sleep(1)
+          for label,skip in [('page_0',0),('page_1',100),('page_156',15600),('page_157',15700)]: fetch(label,skip)
+          result={'status':'passed' if all(row['status']==200 for row in calls) else 'failed','request_count':len(calls),'request_ceiling':4,'max_concurrency':1,'order_fields':order.split(','),'calls':calls}
+          write_json(out/'document_order_probe_result.json',result); print(json.dumps(result,indent=2,sort_keys=True))
+          if result['status']!='passed': raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v06-document-order-probe
+          path: validation/stage5_v06_full_reconciliation/document_order_probe/
+          if-no-files-found: error
+          retention-days: 90
