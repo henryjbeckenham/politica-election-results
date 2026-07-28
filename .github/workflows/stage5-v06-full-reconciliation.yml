@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
 
-      - name: Reconstruct and verify governed v0.6 sources
+      - name: Reconstruct, correct and verify governed v0.6 sources
         shell: bash
         run: |
           set -euo pipefail
@@ -54,11 +54,17 @@ jobs:
             --source "$ROOT/source" \
             --output "$ROOT" \
             --report "$ROOT/source_reconstruction.json"
+          printf '%s  %s\n' \
+            '8451f6fdb8d6c0c3738b02956a49e9acf8bd04e5241f63425a1d16271da46982' \
+            "$ROOT/apply_governed_baseline_correction.py" \
+            | sha256sum -c -
+          python "$ROOT/apply_governed_baseline_correction.py"
           python -m py_compile \
             "$ROOT/full_reconciliation.py" \
             "$ROOT/test_full_reconciliation.py" \
             "$ROOT/finalize_reconciliation.py" \
-            "$ROOT/build_deterministic_zip.py"
+            "$ROOT/build_deterministic_zip.py" \
+            "$ROOT/apply_governed_baseline_correction.py"
           bash -n "$ROOT/run_full_reconciliation.sh"
 
       - name: Execute Stage 5 v0.6 full reconciliation
@@ -77,6 +83,9 @@ jobs:
           mkdir -p "$ROOT/final"
           if test -d "$ROOT/evidence" && test -f "$ROOT/build_deterministic_zip.py"; then
             cp "$ROOT/source_reconstruction.json" "$ROOT/evidence/source_reconstruction.json"
+            if test -f "$ROOT/governed_baseline_correction.json"; then
+              cp "$ROOT/governed_baseline_correction.json" "$ROOT/evidence/governed_baseline_correction.json"
+            fi
             python "$ROOT/build_deterministic_zip.py" \
               --source "$ROOT/evidence" \
               --output "$ROOT/final/politica_stage5_v0_6_full_reconciliation_evidence.zip" \
