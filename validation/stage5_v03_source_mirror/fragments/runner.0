@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import json
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .config import Stage5Config
+from .evidence import EvidenceWriter
+from .http import Transport
+from .models import RunCheckpoint, RunMetrics
+from .odata import (
+    ENTITY_SPECS,
+    EntitySpec,
+    build_collection_url,
+    candidate_from_item,
+    parse_collection_payload,
+    validate_collection_order,
+)
+from .store import JsonStateStore
+from .strategy import (
+    build_discovery_window,
+    classify_contract_change,
+    safe_output_watermark,
+    validate_checkpoint,
+)
+
+
+class IntentionalInterruption(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class RunResult:
+    run_id: str
+    status: str
+    metrics: dict[str, int]
+    watermarks: dict[str, dict[str, Any]]
+    state_file: str
+    evidence_directory: str
+
+
+class Stage5Runner:
+    def __init__(
+        self,
+        *,
+        config: Stage5Config,
+        transport: Transport,
+        store: Any,
+        evidence: EvidenceWriter,
+        contract_hash: str,
+    ) -> None:
+        self.config = config
+        self.transport = transport
+        self.store = store
+        self.evidence = evidence
+        self.contract_hash = contract_hash
+
+    def capture_contract(self, baseline_openapi: dict[str, Any]) -> dict[str, Any]:
+        collector = self.config.raw["collector"]
+        base = collector["base_url"]
+        openapi_url = collector.get("openapi_url", "https://api.prod.legislation.gov.au/swagger/v1/swagger.json")
+        service_url = base
+        openapi_response = self.transport.get(openapi_url)
+        service_response = self.transport.get(service_url)
+        openapi_record = self.evidence.retain("contract_openapi", openapi_response, request_parameters={})
+        service_record = self.evidence.retain("contract_service", service_response, request_parameters={})
+        if openapi_response.status != 200:
+            raise RuntimeError(f"OpenAPI request returned HTTP {openapi_response.status}")
+        if service_response.status != 200:
+            raise RuntimeError(f"service-document request returned HTTP {service_response.status}")
+        current_openapi = json.loads(openapi_response.body.decode("utf-8"))
+        comparison = classify_contract_change(baseline_openapi, current_openapi)
+        comparison.update(
+            {
+                "openapi_exact_sha256": openapi_response.sha256,
+                "service_exact_sha256": service_response.sha256,
+                "openapi_evidence": openapi_record,
+                "service_evidence": service_record,
+            }
+        )
+        (self.evidence.root / "contract_comparison.json").write_text(
+            json.dumps(comparison, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        return comparison
+
+    def run_incremental(
+        self,
+        *,
+        previous_successful_end: datetime | None,
+        now: datetime,
+        run_id: str | None = None,
+        resume: bool = False,
+        interrupt_after_pages: int | None = None,
+        fail_after_pages: int | None = None,
+    ) -> RunResult:
+        run_id = run_id or str(uuid.uuid4())
+        collector = self.config.raw["collector"]
+        sync = self.config.raw["synchronisation"]
+        metrics = RunMetrics()
+        if resume:
+            existing_run = self.store.get_run(run_id)
+            existing_metrics = existing_run.get("metrics") or {}
+            metrics = RunMetrics(**{key: int(value) for key, value in existing_metrics.items()})
+            self.store.resume_run(run_id)
+        else:
+            self.store.start_run(
+                run_id,
+                {
+                    "configuration_hash": self.config.hash,
+                    "contract_hash": self.contract_hash,
+                    "previous_successful_end": previous_successful_end.isoformat() if previous_successful_end else None,
+                    "planned_end": now.isoformat(),
+                },
+            )
+        pages_processed = 0
+        committed: dict[str, dict[str, Any]] = {}
+        proposed_watermarks: dict[str, dict[str, Any]] = {}
+        try:
+            for spec in ENTITY_SPECS:
+                window = build_discovery_window(
+                    previous_successful_end,
+                    now,
+                    int(sync["overlap_hours"]),
+                    spec.discovery_field,
+                )

@@ -1,0 +1,100 @@
+            cursor = connection.execute(
+                "UPDATE stage5_runtime.runs SET status='running', resumed_at=%s "
+                "WHERE run_id=%s AND status IN ('interrupted','failed')",
+                (_now(), run_id),
+            )
+            if cursor.rowcount != 1:
+                existing = connection.execute(
+                    "SELECT status FROM stage5_runtime.runs WHERE run_id=%s", (run_id,)
+                ).fetchone()
+                if not existing:
+                    raise ValueError(f"run does not exist: {run_id}")
+                raise ValueError("only interrupted or failed runs can be resumed")
+
+    def finish_run(self, run_id: str, status: str, metrics: RunMetrics, error: str | None = None) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE stage5_runtime.runs SET status=%s, finished_at=%s, metrics=%s, error=%s WHERE run_id=%s",
+                (status, _now(), self._Jsonb(metrics.as_dict()), error, run_id),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError(f"run does not exist: {run_id}")
+
+    def get_run(self, run_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload,status,started_at,resumed_at,finished_at,metrics,error "
+                "FROM stage5_runtime.runs WHERE run_id=%s",
+                (run_id,),
+            ).fetchone()
+        if not row:
+            raise ValueError(f"run does not exist: {run_id}")
+        payload, status, started_at, resumed_at, finished_at, metrics, error = row
+        result = dict(payload)
+        result.update(
+            {
+                "status": status,
+                "started_at": started_at.isoformat(),
+                "resumed_at": resumed_at.isoformat() if resumed_at else None,
+                "finished_at": finished_at.isoformat() if finished_at else None,
+                "metrics": metrics,
+                "error": error,
+            }
+        )
+        return result
+
+    def put_checkpoint(self, checkpoint: RunCheckpoint) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO stage5_runtime.checkpoints
+                    (run_id,entity_set,partition,cursor,completed_pages,candidate_count,updated_at,configuration_hash,contract_hash)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (run_id,entity_set,partition) DO UPDATE SET
+                    cursor=excluded.cursor,
+                    completed_pages=excluded.completed_pages,
+                    candidate_count=excluded.candidate_count,
+                    updated_at=excluded.updated_at,
+                    configuration_hash=excluded.configuration_hash,
+                    contract_hash=excluded.contract_hash
+                """,
+                (
+                    checkpoint.run_id,
+                    checkpoint.entity_set,
+                    checkpoint.partition,
+                    checkpoint.cursor,
+                    checkpoint.completed_pages,
+                    checkpoint.candidate_count,
+                    checkpoint.updated_at,
+                    checkpoint.configuration_hash,
+                    checkpoint.contract_hash,
+                ),
+            )
+
+    def get_checkpoint(self, run_id: str, entity_set: str, partition: int = 0) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT run_id,entity_set,partition,cursor,completed_pages,candidate_count,
+                       updated_at,configuration_hash,contract_hash
+                FROM stage5_runtime.checkpoints
+                WHERE run_id=%s AND entity_set=%s AND partition=%s
+                """,
+                (run_id, entity_set, partition),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "run_id": row[0],
+            "entity_set": row[1],
+            "partition": row[2],
+            "cursor": row[3],
+            "completed_pages": row[4],
+            "candidate_count": row[5],
+            "updated_at": row[6].isoformat(),
+            "configuration_hash": row[7],
+            "contract_hash": row[8],
+        }
+
+    def upsert_candidate(self, candidate: Candidate, item: dict[str, Any], run_id: str) -> str:
+        identity = candidate_identity(candidate)

@@ -1,0 +1,24 @@
+                    proposed_watermark={
+                        "kind": "completed_coverage_window",
+                        "run_id": run_id,
+                        "entity_set": spec.entity_set,
+                        "coverage_start": window.start.isoformat(),
+                        "coverage_end": window.end.isoformat(),
+                        "discovery_field": spec.discovery_field,
+                        "configuration_hash": self.config.hash,
+                        "contract_hash": self.contract_hash,
+                    },
+                )
+                proposed_watermarks[spec.entity_set] = watermark
+
+            self.store.commit_watermarks(proposed_watermarks)
+            committed.update(proposed_watermarks)
+            self.store.finish_run(run_id, "succeeded", metrics)
+            return RunResult(run_id, "succeeded", metrics.as_dict(), committed, str(self.store.path), str(self.evidence.root))
+        except IntentionalInterruption as exc:
+            self.store.finish_run(run_id, "interrupted", metrics, str(exc))
+            return RunResult(run_id, "interrupted", metrics.as_dict(), committed, str(self.store.path), str(self.evidence.root))
+        except Exception as exc:
+            metrics.failed += 1
+            self.store.finish_run(run_id, "failed", metrics, str(exc))
+            return RunResult(run_id, "failed", metrics.as_dict(), committed, str(self.store.path), str(self.evidence.root))

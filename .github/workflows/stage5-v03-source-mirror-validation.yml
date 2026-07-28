@@ -1,0 +1,198 @@
+name: Stage 5 v0.3 exact source mirror validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_USER: stage5
+          POSTGRES_PASSWORD: stage5_validation_only
+          POSTGRES_DB: stage5_validation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stage5 -d stage5_validation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ROOT: validation/stage5_v03_source_mirror
+      DB_URL: postgresql://stage5:stage5_validation_only@127.0.0.1:5432/stage5_validation
+      EVIDENCE: validation/stage5_v03_source_mirror/evidence
+      BASELINE_NORMALISED_OPENAPI_SHA256: 6487d878f2aa36b19de6be60ab99b290ca1958a77b1377d50691d7f32a345b2a
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct and verify exact executable source mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/source_preflight"
+          cat "$ROOT/fragments/postgres_store.0" "$ROOT/fragments/postgres_store.1" "$ROOT/fragments/postgres_store.2" "$ROOT/fragments/postgres_store.3" > "$ROOT/src/politica_stage5_sync/postgres_store.py"
+          cat "$ROOT/fragments/runner.0" "$ROOT/fragments/runner.1" "$ROOT/fragments/runner.2" > "$ROOT/src/politica_stage5_sync/runner.py"
+          cat "$ROOT/fragments/cli.0" "$ROOT/fragments/cli.1" > "$ROOT/src/politica_stage5_sync/cli.py"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root=Path(os.environ['ROOT'])
+          manifest=json.loads((root/'SOURCE_MIRROR_MANIFEST.json').read_text())
+          rows=[]
+          for rel, expected in manifest['files'].items():
+              path=root/rel
+              body=path.read_bytes()
+              actual=hashlib.sha256(body).hexdigest()
+              row={'path':rel,'expected_sha256':expected['sha256'],'actual_sha256':actual,'expected_byte_count':expected['byte_count'],'actual_byte_count':len(body)}
+              row['passed']=actual==expected['sha256'] and len(body)==expected['byte_count']
+              rows.append(row)
+              if not row['passed']:
+                  raise SystemExit(f"source mirror mismatch: {rel}")
+          result={'status':'passed','package_authority':manifest['package_name'],'package_sha256':manifest['package_sha256'],'package_size_bytes':manifest['package_size_bytes'],'source_mirror_status':manifest['source_mirror_status'],'files':rows}
+          out=Path(os.environ['EVIDENCE'])/'source_preflight'/'result.json'
+          out.write_text(json.dumps(result,indent=2,sort_keys=True))
+          print(json.dumps(result,indent=2,sort_keys=True))
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path(os.environ['ROOT'])/'config.example.toml'
+          text=p.read_text()
+          text=text.replace('page_size = 1','page_size = 20')
+          p.write_text(text)
+          PY
+          python -m pip install --quiet -e "$ROOT"
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli validate-config "$ROOT/config.example.toml" | tee "$EVIDENCE/source_preflight/config_result.json"
+
+      - name: Capture exact current official contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/contract"
+          PYTHONPATH="$ROOT/src" python - <<'PY'
+          from pathlib import Path
+          import json, os
+          from politica_stage5_sync.config import load_config
+          from politica_stage5_sync.evidence import EvidenceWriter
+          from politica_stage5_sync.http import UrllibTransport
+          from politica_stage5_sync.strategy import canonical_json_hash, normalise_openapi_contract
+          root=Path(os.environ['ROOT'])
+          evidence=Path(os.environ['EVIDENCE'])/'contract'
+          config=load_config(root/'config.example.toml')
+          c=config.raw['collector']
+          transport=UrllibTransport(approved_hosts=list(c['approved_hosts']),user_agent=c['user_agent'],timeout_seconds=int(c['request_timeout_seconds']),retry_ceiling=int(c['retry_ceiling']),request_ceiling=int(c['request_ceiling']),response_size_ceiling_bytes=int(c['response_size_ceiling_bytes']))
+          writer=EvidenceWriter(evidence)
+          openapi=transport.get(c['openapi_url'])
+          service=transport.get(c['base_url'])
+          openapi_record=writer.retain('contract_openapi',openapi,request_parameters={})
+          service_record=writer.retain('contract_service',service,request_parameters={})
+          if openapi.status != 200 or service.status != 200:
+              raise SystemExit('official contract request failed')
+          obj=json.loads(openapi.body.decode())
+          normalised=canonical_json_hash(normalise_openapi_contract(obj))
+          expected=os.environ['BASELINE_NORMALISED_OPENAPI_SHA256']
+          result={'status':'passed' if normalised==expected else 'failed','openapi_exact_sha256':openapi.sha256,'service_exact_sha256':service.sha256,'openapi_normalised_sha256':normalised,'baseline_normalised_sha256':expected,'normalised_match':normalised==expected,'path_count':len(obj.get('paths',{})),'schema_count':len(obj.get('components',{}).get('schemas',{})),'openapi_evidence':openapi_record,'service_evidence':service_record}
+          (evidence/'result.json').write_text(json.dumps(result,indent=2,sort_keys=True))
+          (evidence/'openapi_sha256.txt').write_text(openapi.sha256+'\n')
+          print(json.dumps(result,indent=2,sort_keys=True))
+          if not result['normalised_match']:
+              raise SystemExit('current OpenAPI differs structurally from governed baseline')
+          PY
+
+      - name: Execute bounded live success and exact PostgreSQL assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE/live_success" "$EVIDENCE/postgres"
+          NOW="$(date -u -d '-2 hours' +%Y-%m-%dT%H:00:00Z)"
+          PREVIOUS="$(date -u -d "$NOW -24 hours" +%Y-%m-%dT%H:00:00Z)"
+          printf '%s\n' "$NOW" > "$EVIDENCE/window_end.txt"
+          printf '%s\n' "$PREVIOUS" > "$EVIDENCE/window_previous.txt"
+          CONTRACT_HASH="$(cat "$EVIDENCE/contract/openapi_sha256.txt")"
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli run-live "$ROOT/config.example.toml" --database-url "$DB_URL" --evidence "$EVIDENCE/live_success" --contract-hash "$CONTRACT_HASH" --previous-end "$PREVIOUS" --now "$NOW" --run-id live-success | tee "$EVIDENCE/live_success_result.json"
+          test "$(jq -r .status "$EVIDENCE/live_success_result.json")" = succeeded
+          psql "$DB_URL" -Atc 'SHOW server_version_num' | tee "$EVIDENCE/postgres/server_version_num.txt"
+          grep -qx '180004' "$EVIDENCE/postgres/server_version_num.txt"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$ROOT/sql/stage5_runtime_assertions.sql" | tee "$EVIDENCE/postgres/runtime_assertions.log"
+          grep -q 'STAGE5_RUNTIME_POSTGRES_PASS' "$EVIDENCE/postgres/runtime_assertions.log"
+
+      - name: Execute repeat, interruption, resume and failure scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          NOW="$(cat "$EVIDENCE/window_end.txt")"
+          PREVIOUS="$(cat "$EVIDENCE/window_previous.txt")"
+          CONTRACT_HASH="$(cat "$EVIDENCE/contract/openapi_sha256.txt")"
+          for name in live_repeat live_interrupted live_resumed live_failed; do mkdir -p "$EVIDENCE/$name"; done
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli run-live "$ROOT/config.example.toml" --database-url "$DB_URL" --evidence "$EVIDENCE/live_repeat" --contract-hash "$CONTRACT_HASH" --previous-end "$PREVIOUS" --now "$NOW" --run-id live-repeat | tee "$EVIDENCE/live_repeat_result.json"
+          test "$(jq -r .status "$EVIDENCE/live_repeat_result.json")" = succeeded
+          test "$(jq -r .metrics.created "$EVIDENCE/live_repeat_result.json")" -eq 0
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli run-live "$ROOT/config.example.toml" --database-url "$DB_URL" --evidence "$EVIDENCE/live_interrupted" --contract-hash "$CONTRACT_HASH" --previous-end "$PREVIOUS" --now "$NOW" --run-id live-interrupted --interrupt-after-pages 1 | tee "$EVIDENCE/live_interrupted_result.json"
+          test "$(jq -r .status "$EVIDENCE/live_interrupted_result.json")" = interrupted
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli run-live "$ROOT/config.example.toml" --database-url "$DB_URL" --evidence "$EVIDENCE/live_resumed" --contract-hash "$CONTRACT_HASH" --previous-end "$PREVIOUS" --now "$NOW" --run-id live-interrupted --resume | tee "$EVIDENCE/live_resumed_result.json"
+          test "$(jq -r .status "$EVIDENCE/live_resumed_result.json")" = succeeded
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli run-live "$ROOT/config.example.toml" --database-url "$DB_URL" --evidence "$EVIDENCE/live_failed" --contract-hash "$CONTRACT_HASH" --previous-end "$PREVIOUS" --now "$NOW" --run-id live-failed --fail-after-pages 1 | tee "$EVIDENCE/live_failed_result.json"
+          test "$(jq -r .status "$EVIDENCE/live_failed_result.json")" = failed
+          PYTHONPATH="$ROOT/src" python -m politica_stage5_sync.cli snapshot-state --database-url "$DB_URL" > "$EVIDENCE/postgres_snapshot.json"
+
+      - name: Reconcile validation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$ROOT/src" python - <<'PY'
+          from pathlib import Path
+          import json, os
+          root=Path(os.environ['EVIDENCE'])
+          load=lambda name: json.loads((root/name).read_text())
+          success=load('live_success_result.json')
+          repeat=load('live_repeat_result.json')
+          interrupted=load('live_interrupted_result.json')
+          resumed=load('live_resumed_result.json')
+          failed=load('live_failed_result.json')
+          snapshot=load('postgres_snapshot.json')
+          checks={
+            'success_status':success['status']=='succeeded',
+            'repeat_status':repeat['status']=='succeeded',
+            'repeat_created_zero':repeat['metrics']['created']==0,
+            'interrupted_status':interrupted['status']=='interrupted',
+            'resumed_status':resumed['status']=='succeeded',
+            'failed_status':failed['status']=='failed',
+            'watermark_pair':set(snapshot['watermarks'])=={'Titles','Versions'},
+            'watermarks_owned_by_resumed_run':all(v['database_run_id']=='live-interrupted' for v in snapshot['watermarks'].values()),
+            'failed_run_owns_no_watermark':all(v['database_run_id']!='live-failed' for v in snapshot['watermarks'].values()),
+            'raw_capture_hashes_match':all(v['database_body_sha256']==v['response_sha256'] and v['database_byte_count']==v['byte_count'] for v in snapshot['raw_captures'].values()),
+            'current_contract_matches':load('contract/result.json')['normalised_match'],
+            'source_mirror_passed':load('source_preflight/result.json')['status']=='passed',
+          }
+          result={'status':'passed' if all(checks.values()) else 'failed','checks':checks,'run_metrics':{'success':success['metrics'],'repeat':repeat['metrics'],'interrupted':interrupted['metrics'],'resumed':resumed['metrics'],'failed':failed['metrics']},'database_counts':{'runs':len(snapshot['runs']),'checkpoints':len(snapshot['checkpoints']),'candidates':len(snapshot['candidates']),'raw_captures':len(snapshot['raw_captures']),'watermarks':len(snapshot['watermarks'])}}
+          (root/'final_result.json').write_text(json.dumps(result,indent=2,sort_keys=True))
+          print(json.dumps(result,indent=2,sort_keys=True))
+          if result['status']!='passed':
+              raise SystemExit('Stage 5 v0.3 validation evidence did not reconcile')
+          PY
+
+      - name: Package evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation/stage5_v03_source_mirror/final
+          (cd "$ROOT" && zip -qr final/stage5-v03-source-mirror-networked-evidence.zip evidence SOURCE_MIRROR_MANIFEST.json)
+          sha256sum "$ROOT/final/stage5-v03-source-mirror-networked-evidence.zip" > "$ROOT/final/stage5-v03-source-mirror-networked-evidence.sha256"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-v03-source-mirror-networked-evidence
+          path: validation/stage5_v03_source_mirror/final/
+          if-no-files-found: error
