@@ -55,7 +55,7 @@ jobs:
             --output "$ROOT" \
             --report "$ROOT/source_reconstruction.json"
           printf '%s  %s\n' \
-            '8451f6fdb8d6c0c3738b02956a49e9acf8bd04e5241f63425a1d16271da46982' \
+            '113eb6a92ac03556b380219208bac6ce1f9ba15093f1fd74bf35befdc1e94ccb' \
             "$ROOT/apply_governed_baseline_correction.py" \
             | sha256sum -c -
           python "$ROOT/apply_governed_baseline_correction.py"
