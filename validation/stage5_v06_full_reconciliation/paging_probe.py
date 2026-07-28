@@ -16,7 +16,7 @@ RAW = OUT / "raw"
 RAW.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 8 * 1024 * 1024
 TIMEOUT = 45
-PAGE_SIZE = 500
+PAGE_SIZE = 100
 
 
 def write_json(path: Path, value: Any) -> None:
