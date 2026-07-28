@@ -4,17 +4,17 @@
       "chunks": [
         {
           "base64_char_count": 1800,
-          "byte_count": 1801,
+          "byte_count": 1800,
           "path": "assertions.0",
           "sequence": 0,
-          "sha256": "6e886762d124f1c586b8fc9c9a550a4b1e229d772d6b7c5c1439468d040ea733"
+          "sha256": "8639d4a3743ab4e084c053498ad25fe384f28ffc40e4182efe6989d6d86365d2"
         },
         {
           "base64_char_count": 1692,
-          "byte_count": 1693,
+          "byte_count": 1692,
           "path": "assertions.1",
           "sequence": 1,
-          "sha256": "2fd73a8575afcd7f0bfb883eaf1d19e5ccfbf6f787c134484e56b2a76e941aeb"
+          "sha256": "19e47ed377b212daf1b7d64bb193bf326565f5f8831d80bbd9ebb5b6449355c4"
         }
       ],
       "combined_base64_char_count": 3492,
@@ -25,31 +25,31 @@
       "chunks": [
         {
           "base64_char_count": 2300,
-          "byte_count": 2301,
+          "byte_count": 2300,
           "path": "fixture.0",
           "sequence": 0,
-          "sha256": "91495a685ead3cb3cde271869993ded31351ccbeb4efea29bed436216b6741fd"
+          "sha256": "ec2397a280cadef6a4914235b787d9d2f1f57d1a5250fa1f593542d993639c59"
         },
         {
           "base64_char_count": 2300,
-          "byte_count": 2301,
+          "byte_count": 2300,
           "path": "fixture.1",
           "sequence": 1,
-          "sha256": "38280ee7b216e6fd878c14cccb60c16fb94643703756955d246b89768745c854"
+          "sha256": "a7f2b87933b23ad249e4a963d38035de852f8536fa74167cefb231312a214dfa"
         },
         {
           "base64_char_count": 2300,
-          "byte_count": 2301,
+          "byte_count": 2300,
           "path": "fixture.2",
           "sequence": 2,
-          "sha256": "3906b00f757e1cc2db9ec524344629b1b130ee0976ea84678786457b3e05256f"
+          "sha256": "e3e33f522dff615480f71f7438db37a0edab6324263237c41ddaf59e0d43093d"
         },
         {
           "base64_char_count": 2300,
-          "byte_count": 2301,
+          "byte_count": 2300,
           "path": "fixture.3",
           "sequence": 3,
-          "sha256": "084ef55d01418ef1a130300db31cd3f8e03c3c832c063678dbf853f20d0d6fdf"
+          "sha256": "f41849162883b7a86c531bcb4f04afe85415e8bb0f275ec0c32cb72c037733a7"
         }
       ],
       "combined_base64_char_count": 9200,
